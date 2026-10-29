@@ -23,6 +23,7 @@ export function Layout() {
     <div className="app">
       <header className="topbar">
         <NavLink to="/" className="brand">
+          <img className="brand-crest" src="/escudo-192.png" alt="" width={36} height={36} />
           JUDEVAL <span>Entrenadores</span>
         </NavLink>
         <nav className="topnav" aria-label="Principal">

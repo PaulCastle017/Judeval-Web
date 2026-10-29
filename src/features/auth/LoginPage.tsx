@@ -36,7 +36,7 @@ export function LoginPage() {
     <div className="center-page login-page">
       <form className="card narrow stack" onSubmit={onSubmit} noValidate>
         <div className="login-brand">
-          <span className="brand-big">JUDEVAL</span>
+          <img className="login-crest" src="/escudo-512.png" alt="Escudo de la Escuela Deportiva JUDEVAL" width={140} height={140} />
           <span className="muted">Acompañar, unir y hacer equipo</span>
         </div>
         <h1>Acceso entrenadores</h1>

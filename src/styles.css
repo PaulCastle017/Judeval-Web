@@ -1,13 +1,13 @@
 /* JUDEVAL · estilos de la app de entrenadores (mobile-first) */
 :root {
-  --purple: #5b2d91;
-  --purple-dark: #3f1d66;
-  --lilac: #f0eaf6;
-  --lilac-strong: #e0d3ee;
-  --ink: #2a2238;
-  --muted: #6b6478;
-  --line: #e4e0ea;
-  --bg: #faf8fc;
+  --purple: #990074;
+  --purple-dark: #6b0051;
+  --lilac: #f9ebf5;
+  --lilac-strong: #efcfe5;
+  --ink: #141414;
+  --muted: #5f5a5e;
+  --line: #e8e3e6;
+  --bg: #fbf9fa;
   --card: #ffffff;
   --success: #1f7a4d;
   --success-bg: #e3f4ea;
@@ -18,7 +18,7 @@
   --info: #1d5fa8;
   --info-bg: #e5f0fb;
   --radius: 12px;
-  --shadow: 0 1px 2px rgba(42, 34, 56, 0.06), 0 2px 8px rgba(42, 34, 56, 0.05);
+  --shadow: 0 1px 2px rgba(20, 20, 20, 0.06), 0 2px 8px rgba(20, 20, 20, 0.05);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--ink);
   background: var(--bg);
@@ -52,13 +52,14 @@ ul, ol { padding-left: 1.25rem; }
   display: flex; align-items: center; gap: 1rem; justify-content: space-between;
   padding: 0.6rem 1rem; background: var(--purple); color: #fff;
 }
-.brand { color: #fff; font-weight: 800; letter-spacing: 0.05em; text-decoration: none; }
+.brand { display: inline-flex; align-items: center; gap: 0.5rem; color: #fff; font-weight: 800; letter-spacing: 0.05em; text-decoration: none; }
+.brand-crest { width: 36px; height: 36px; padding: 2px; background: #fff; border-radius: 8px; flex-shrink: 0; }
 .brand span { font-weight: 400; opacity: 0.8; letter-spacing: 0; margin-left: 0.25rem; }
 .topnav { display: none; gap: 0.25rem; flex-wrap: wrap; }
 .topnav a { color: #fff; text-decoration: none; padding: 0.35rem 0.6rem; border-radius: 8px; opacity: 0.85; }
 .topnav a.active, .topnav a:hover { background: rgba(255, 255, 255, 0.15); opacity: 1; }
 .topbar-user { display: none; align-items: center; gap: 0.5rem; }
-.topbar-user .muted { color: #e8dcf5; }
+.topbar-user .muted { color: #f6d9ec; }
 .topbar .btn-ghost { color: #fff; border-color: rgba(255, 255, 255, 0.4); }
 
 .content { flex: 1; width: 100%; max-width: 960px; margin: 0 auto; padding: 1rem 1rem 6rem; }
@@ -85,7 +86,7 @@ ul, ol { padding-left: 1.25rem; }
 .center-page { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
 .login-page { background: linear-gradient(160deg, var(--lilac), var(--bg)); }
 .login-brand { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; margin-bottom: 0.5rem; }
-.brand-big { font-size: 2rem; font-weight: 900; color: var(--purple); letter-spacing: 0.08em; }
+.login-crest { width: 140px; height: 140px; }
 
 /* Bloques -------------------------------------------------------------- */
 .stack { display: flex; flex-direction: column; gap: 1rem; }
@@ -111,7 +112,7 @@ ul, ol { padding-left: 1.25rem; }
 /* Formularios ------------------------------------------------------------ */
 input, select, textarea {
   width: 100%; font: inherit; color: inherit;
-  padding: 0.55rem 0.7rem; border: 1px solid #cfc8da; border-radius: 8px; background: #fff;
+  padding: 0.55rem 0.7rem; border: 1px solid #cdc5ca; border-radius: 8px; background: #fff;
 }
 textarea { resize: vertical; }
 input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible {
@@ -142,7 +143,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .btn-primary { background: var(--purple); border-color: var(--purple); color: #fff; }
 .btn-primary:hover { background: var(--purple-dark); }
 .btn-ghost { background: transparent; border-color: var(--line); color: inherit; }
-.btn-ghost:hover { background: rgba(91, 45, 145, 0.06); }
+.btn-ghost:hover { background: rgba(153, 0, 116, 0.06); }
 .btn-danger { background: var(--danger-bg); border-color: #f5c2bd; color: var(--danger); }
 .btn-danger:hover { background: #fbd9d5; }
 .btn-small { padding: 0.3rem 0.6rem; font-size: 0.85rem; }
@@ -177,7 +178,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; white-space: nowrap; }
-.badge-neutral { background: #eeeaf3; color: #4a4258; }
+.badge-neutral { background: #efeaed; color: #3d383b; }
 .badge-success { background: var(--success-bg); color: var(--success); }
 .badge-danger { background: var(--danger-bg); color: var(--danger); }
 .badge-warn { background: var(--warn-bg); color: var(--warn); }
@@ -235,7 +236,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .attendance-dots { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .sticky-actions {
   position: sticky; bottom: 4.2rem; z-index: 5; padding: 0.6rem; margin: 0 -0.6rem;
-  background: rgba(250, 248, 252, 0.95); border-radius: var(--radius);
+  background: rgba(251, 249, 250, 0.95); border-radius: var(--radius);
 }
 @media (min-width: 900px) { .sticky-actions { bottom: 0.5rem; } }
 
