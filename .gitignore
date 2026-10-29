@@ -1,0 +1,29 @@
+# Dependencias y build
+node_modules/
+dist/
+*.tsbuildinfo
+.vercel/
+
+# Variables de entorno: NUNCA subir secretos
+.env
+.env.*
+!.env.example
+supabase/.env
+supabase/functions/.env
+
+# Datos personales de jugadores (menores): nunca a GitHub
+analisis_jugadores.txt
+Guia_JUDEVAL_Acompanamiento_y_Convivencia.pdf
+supabase/private/
+backups/
+*.dump
+*.backup
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# Editor / SO
+.DS_Store
+Thumbs.db
+*.log
