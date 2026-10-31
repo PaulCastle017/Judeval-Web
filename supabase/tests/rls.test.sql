@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(32);
+select plan(51);
 
 -- Usuarios de prueba ---------------------------------------------------------------
 insert into auth.users (id, email, aud, role) values
@@ -112,6 +112,59 @@ select is((select count(*)::int from player_notes where id = '00000000-0000-0000
   0, 'admin pudo borrar la nota de otro');
 select is((select count(*)::int from players where id = '00000000-0000-0000-0000-0000000000f2'),
   0, 'admin pudo borrar un jugador');
+
+-- DEPORTES, REVISIONES LIBRES, NOTICIAS Y ENTRENAMIENTOS ---------------------------
+insert into categories (id, name, sport) values ('00000000-0000-0000-0000-00000000ca72', 'Test', 'voley');
+insert into players (id, category_id, first_name) values
+  ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-00000000ca72', 'Jugadora Voley');
+
+select throws_ok($$insert into public.team_commitments (sport, category_id, title)
+  values ('voley', '00000000-0000-0000-0000-00000000ca71', 'Mal')$$,
+  '23503', null, 'un compromiso no puede apuntar a una categoría de otro deporte');
+select lives_ok($$insert into public.team_commitments (sport, category_id, title, status)
+  values ('futsal', '00000000-0000-0000-0000-00000000ca71', 'Bien', 'cumplido')$$,
+  'compromiso con categoría del mismo deporte y estado');
+select throws_ok($$insert into public.categories (name, sport) values ('Test', 'voley')$$,
+  '23505', null, 'el nombre de categoría es único dentro de cada deporte');
+
+set local role anon;
+select throws_ok('select * from public.review_players', '42501', null, 'anon no puede leer etiquetas de revisiones');
+select throws_ok($$select * from public.player_last_news('futsal')$$, '42501', null, 'anon no puede consultar noticias');
+select throws_ok($$select public.save_review(null, 'futsal', current_date, 'x', '{}')$$, '42501', null, 'anon no puede guardar revisiones');
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000d1","role":"authenticated"}', true);
+set local role authenticated;
+select is((select count(*)::int from public.player_last_news('futsal')), 0, 'inactivo: no ve noticias de jugadores');
+select throws_ok($$select public.save_review(null, 'futsal', current_date, 'x', '{}')$$, '42501', null, 'inactivo: no puede guardar revisiones');
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
+set local role authenticated;
+select lives_ok($$select public.save_review(null, 'futsal', '2026-10-31', 'Revisión libre',
+  array['00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000f1']::uuid[])$$,
+  'coach: guarda revisión libre con jugador etiquetado (duplicados ignorados)');
+select is((select count(*)::int from review_players rp join staff_reviews r on r.id = rp.review_id where r.body = 'Revisión libre'),
+  1, 'coach: la etiqueta queda guardada una sola vez');
+select lives_ok($$select public.save_review((select id from public.staff_reviews where body = 'Revisión libre'),
+  'futsal', '2026-10-31', 'Revisión editada', '{}')$$, 'coach: edita la revisión y quita etiquetas');
+select is((select count(*)::int from review_players rp join staff_reviews r on r.id = rp.review_id where r.body = 'Revisión editada'),
+  0, 'coach: las etiquetas quitadas se borran');
+select throws_ok($$select public.save_review(null, 'futsal', current_date, 'Atómica',
+  array['00000000-0000-0000-0000-00000000dead']::uuid[])$$, '23503', null, 'save_review: un jugador inexistente aborta la operación');
+select is((select count(*)::int from staff_reviews where body = 'Atómica'), 0, 'save_review es atómica: no queda revisión a medias');
+select is((select count(*)::int from public.player_last_news('futsal') where player_id = '00000000-0000-0000-0000-0000000000f1'),
+  1, 'coach: las noticias de fútbol incluyen a sus jugadores');
+select is((select count(*)::int from public.player_last_news('futsal') where player_id = '00000000-0000-0000-0000-0000000000f3'),
+  0, 'las noticias de fútbol no incluyen jugadores de voley');
+select isnt((select last_news_date from public.player_last_news('futsal') where player_id = '00000000-0000-0000-0000-0000000000f1'),
+  null, 'noticias: fecha de la última nota del jugador');
+select throws_ok($$insert into public.training_sessions (category_id, session_date, exercises)
+  values ('00000000-0000-0000-0000-00000000ca71', '2030-01-01', '{"a": 1}')$$, '23514', null, 'exercises debe ser una lista');
+select lives_ok($$insert into public.training_sessions (category_id, session_date, start_time, duration_minutes, exercises)
+  values ('00000000-0000-0000-0000-00000000ca71', '2030-01-02', '17:00', 90, '[{"name": "Rondo", "minutes": 15, "notes": ""}]')$$,
+  'coach: crea un entrenamiento planificado con ejercicios');
+reset role;
 
 select * from finish();
 rollback;

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { toMessage } from '../lib/errors'
 import { unwrapMaybe } from '../lib/queries'
+import { clearStoredSport } from '../sport/storage'
 import type { Tables } from '../types/database'
 
 type AuthState = {
@@ -54,10 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [signingOut, setSigningOut] = useState(false)
   const signOut = useCallback(async () => {
     setSigningOut(true)
+    if (userId) clearStoredSport(userId)
     await supabase.auth.signOut()
     queryClient.clear()
     window.location.replace('/login')
-  }, [queryClient])
+  }, [queryClient, userId])
 
   const profile = userId ? (profileQuery.data ?? null) : null
 

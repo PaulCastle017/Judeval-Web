@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { unwrap, unwrapMaybe, useCategories, useCoachCategories, usePlayers } from '../../lib/queries'
-import { ATTENDANCE_LABELS, formatLongDate, formatTime, isoWeekday, playerName, todayISO } from '../../lib/format'
-import { parseForm, sessionSchema } from '../../lib/validation'
+import { ATTENDANCE_LABELS, endTime, formatLongDate, formatTime, isoWeekday, playerName, SPORT_EMOJI, todayISO } from '../../lib/format'
+import { parseExercises, parseForm, sessionSchema } from '../../lib/validation'
+import { useSport } from '../../sport/SportProvider'
 import { useAuth } from '../../auth/AuthProvider'
 import { ConfirmButton, EmptyState, ErrorMessage, Field, PageHeader, Spinner, SuccessMessage } from '../../components/ui'
 import type { Enums, Tables } from '../../types/database'
@@ -26,11 +27,14 @@ const CLOSING_QUESTIONS = [
 export function AttendancePage() {
   const [params, setParams] = useSearchParams()
   const { profile } = useAuth()
-  const categories = useCategories()
+  const sport = useSport()
+  const categories = useCategories(sport)
   const coachCategories = useCoachCategories()
 
-  const myFirstCategory = coachCategories.data?.find((cc) => cc.coach_id === profile?.id)?.category_id
-  const categoryId = params.get('categoria') || myFirstCategory || categories.data?.[0]?.id || ''
+  const inSport = (id: string | null | undefined) => !!id && !!categories.data?.some((c) => c.id === id)
+  const myFirstCategory = coachCategories.data?.find((cc) => cc.coach_id === profile?.id && inSport(cc.category_id))?.category_id
+  const requested = params.get('categoria')
+  const categoryId = (inSport(requested) ? requested : myFirstCategory || categories.data?.[0]?.id) ?? ''
   const date = params.get('fecha') || todayISO()
 
   function setParam(key: string, value: string) {
@@ -47,7 +51,7 @@ export function AttendancePage() {
   return (
     <div className="stack">
       <PageHeader
-        title="Pasar lista"
+        title={`${SPORT_EMOJI[sport]} Pasar lista`}
         actions={
           <Link to="/asistencia/historial" className="btn btn-ghost">
             Historial
@@ -79,7 +83,7 @@ export function AttendancePage() {
 }
 
 function SessionLoader({ category, date }: { category: Tables<'categories'>; date: string }) {
-  const players = usePlayers()
+  const players = usePlayers(category.sport)
   // Se guarda aquí porque la hoja se vuelve a montar al recargar los datos tras guardar.
   const [savedKey, setSavedKey] = useState<string | null>(null)
   const sheetKey = `${category.id}-${date}`
@@ -106,7 +110,9 @@ function SessionLoader({ category, date }: { category: Tables<'categories'>; dat
   const roster = players.data.filter((p) => (p.category_id === category.id && p.status !== 'baja' && p.active) || savedIds.has(p.id))
 
   return (
-    <AttendanceSheet
+    <>
+      {session.data && <TrainingPlan session={session.data} />}
+      <AttendanceSheet
       key={`${sheetKey}-${session.dataUpdatedAt}`}
       categoryId={category.id}
       date={date}
@@ -115,6 +121,40 @@ function SessionLoader({ category, date }: { category: Tables<'categories'>; dat
       savedOk={savedKey === sheetKey}
       onSaved={() => setSavedKey(sheetKey)}
     />
+    </>
+  )
+}
+
+/** Plan del entrenamiento (creado en «Entrenamientos»), si lo hay. Pasar lista no lo modifica. */
+function TrainingPlan({ session }: { session: Tables<'training_sessions'> }) {
+  const exercises = parseExercises(session.exercises)
+  if (!session.start_time && !session.duration_minutes && exercises.length === 0) return null
+  return (
+    <details className="card training-plan">
+      <summary>
+        <span>
+          📋 <strong>Plan del entrenamiento</strong>
+          {session.start_time && ` · ${formatTime(session.start_time)}`}
+          {session.start_time && session.duration_minutes && `–${endTime(session.start_time, session.duration_minutes)}`}
+          {session.duration_minutes && ` · ${session.duration_minutes} min`}
+          {exercises.length > 0 && ` · ${exercises.length} ejercicio${exercises.length === 1 ? '' : 's'}`}
+        </span>
+        <Link to={`/entrenamientos/${session.id}`} className="btn btn-ghost btn-small">
+          Editar plan
+        </Link>
+      </summary>
+      {exercises.length > 0 && (
+        <ol className="exercise-summary">
+          {exercises.map((ex, i) => (
+            <li key={i}>
+              <strong>{ex.name}</strong>
+              {ex.minutes && <span className="muted"> · {ex.minutes} min</span>}
+              {ex.notes && <span className="muted small block">{ex.notes}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
   )
 }
 

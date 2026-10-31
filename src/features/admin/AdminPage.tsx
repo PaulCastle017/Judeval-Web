@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { functionErrorMessage, toMessage } from '../../lib/errors'
 import { unwrap, useCategories, useCoachCategories, useStaff } from '../../lib/queries'
-import { ROLE_LABELS, WEEKDAYS } from '../../lib/format'
+import { ROLE_LABELS, SPORT_EMOJI, SPORT_LABELS, SPORTS, WEEKDAYS } from '../../lib/format'
 import { categorySchema, newUserSchema, parseForm, password as passwordSchema, type FieldErrors } from '../../lib/validation'
 import { useAuth } from '../../auth/AuthProvider'
 import { Badge, ConfirmButton, ErrorMessage, Field, PageHeader, Spinner, SuccessMessage } from '../../components/ui'
@@ -207,7 +207,7 @@ function UserCard({ user, onNotice }: { user: Tables<'profiles'>; onNotice: (msg
               disabled={assign.isPending}
               onChange={(e) => assign.mutate({ categoryId: c.id, on: e.target.checked })}
             />
-            {c.name}
+            {SPORT_EMOJI[c.sport]} {c.name}
           </label>
         ))}
       </div>
@@ -293,8 +293,17 @@ function CategoriesAdmin() {
       {creating && <CategoryForm onDone={() => setCreating(false)} />}
       {categories.isPending && <Spinner />}
       {categories.isError && <ErrorMessage error={categories.error} onRetry={categories.refetch} />}
-      {categories.data?.map((c) => (
-        <CategoryForm key={c.id} category={c} />
+      {SPORTS.map((sport) => (
+        <section key={sport} className="stack-sm">
+          <h2>
+            {SPORT_EMOJI[sport]} {SPORT_LABELS[sport]}
+          </h2>
+          {categories.data
+            ?.filter((c) => c.sport === sport)
+            .map((c) => (
+              <CategoryForm key={c.id} category={c} />
+            ))}
+        </section>
       ))}
     </div>
   )
@@ -303,6 +312,7 @@ function CategoriesAdmin() {
 function CategoryForm({ category, onDone }: { category?: Tables<'categories'>; onDone?: () => void }) {
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
+    sport: category?.sport ?? ('futsal' as Enums<'sport_type'>),
     name: category?.name ?? '',
     schedule_text: category?.schedule_text ?? '',
     training_weekdays: category?.training_weekdays ?? [],
@@ -349,10 +359,19 @@ function CategoryForm({ category, onDone }: { category?: Tables<'categories'>; o
 
   return (
     <form className="card stack-sm" onSubmit={onSubmit} noValidate>
-      <h3>{category ? category.name : 'Nueva categoría'}</h3>
+      <h3>{category ? `${SPORT_EMOJI[category.sport]} ${category.name}` : 'Nueva categoría'}</h3>
       {save.isError && <ErrorMessage message={toMessage(save.error)} />}
       {remove.isError && <ErrorMessage message={toMessage(remove.error)} />}
       <div className="grid-3">
+        <Field label="Deporte" error={errors.sport} hint={category ? 'Cambiarlo mueve sus jugadores y entrenamientos al otro deporte' : undefined}>
+          <select value={form.sport} onChange={(e) => setForm({ ...form, sport: e.target.value as Enums<'sport_type'> })}>
+            {SPORTS.map((s) => (
+              <option key={s} value={s}>
+                {SPORT_EMOJI[s]} {SPORT_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label="Nombre" error={errors.name}>
           <input value={form.name} maxLength={60} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </Field>

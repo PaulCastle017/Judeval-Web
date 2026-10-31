@@ -56,29 +56,42 @@ export const sessionSchema = z.object({
 
 export const reviewSchema = z.object({
   review_date: date,
-  integration: optionalText(4000),
-  coherence: optionalText(4000),
-  positive_behaviors: optionalText(4000),
-  conflicts: optionalText(4000),
-  privacy: optionalText(4000),
-  next_change: optionalText(4000),
+  body: z.string().trim().min(1, 'Escribe lo que has visto o quieres resaltar').max(8000, 'Máximo 8000 caracteres'),
+  player_ids: z.array(z.uuid()).max(100),
 })
 
-export const reviewActionSchema = z.object({
-  description: z.string().trim().min(1, 'Describe la acción').max(500, 'Máximo 500 caracteres'),
-  player_id: z
-    .string()
-    .transform((v) => v || null)
-    .pipe(z.uuid().nullable()),
-  owner_id: z
-    .string()
-    .transform((v) => v || null)
-    .pipe(z.uuid().nullable()),
-  due_date: z
-    .string()
-    .transform((v) => v || null)
-    .pipe(date.nullable()),
+const TIME = /^\d{2}:\d{2}(:\d{2})?$/
+const optionalTime = z
+  .string()
+  .transform((v) => v || null)
+  .pipe(z.string().regex(TIME, 'Hora no válida').nullable())
+const optionalInt = (min: number, max: number, message: string) =>
+  z
+    .union([z.literal(''), z.null(), z.coerce.number().int(message).min(min, message).max(max, message)])
+    .transform((v) => (v === '' || v === null ? null : v))
+
+export const exerciseSchema = z.object({
+  name: z.string().trim().min(1, 'Pon nombre al ejercicio').max(120, 'Máximo 120 caracteres'),
+  minutes: optionalInt(1, 300, 'Minutos no válidos'),
+  notes: optionalText(300),
 })
+
+export const trainingSchema = z.object({
+  category_id: z.uuid('Elige una categoría'),
+  session_date: date,
+  start_time: optionalTime,
+  duration_minutes: optionalInt(15, 300, 'Entre 15 y 300 minutos'),
+  notes: optionalText(2000),
+  exercises: z.array(exerciseSchema).max(30, 'Máximo 30 ejercicios'),
+})
+
+export type Exercise = z.output<typeof exerciseSchema>
+
+/** Lee la columna jsonb `exercises`; si algo no encaja, devuelve lista vacía en vez de romper la pantalla. */
+export function parseExercises(value: unknown): Exercise[] {
+  const result = z.array(exerciseSchema).safeParse(value)
+  return result.success ? result.data : []
+}
 
 export const commitmentSchema = z.object({
   title: z.string().trim().min(1, 'El título es obligatorio').max(120, 'Máximo 120 caracteres'),
@@ -87,23 +100,18 @@ export const commitmentSchema = z.object({
     .string()
     .transform((v) => v || null)
     .pipe(z.uuid().nullable()),
+  status: z.enum(['pendiente', 'cumplido', 'no_conseguido']),
   sort_order: z.coerce.number().int().min(0).max(999),
 })
 
-const TIME = /^\d{2}:\d{2}(:\d{2})?$/
 export const categorySchema = z
   .object({
+    sport: z.enum(['futsal', 'voley']),
     name: z.string().trim().min(1, 'El nombre es obligatorio').max(60, 'Máximo 60 caracteres'),
     schedule_text: optionalText(120),
     training_weekdays: z.array(z.number().int().min(1).max(7)),
-    start_time: z
-      .string()
-      .transform((v) => v || null)
-      .pipe(z.string().regex(TIME, 'Hora no válida').nullable()),
-    end_time: z
-      .string()
-      .transform((v) => v || null)
-      .pipe(z.string().regex(TIME, 'Hora no válida').nullable()),
+    start_time: optionalTime,
+    end_time: optionalTime,
     season: z.string().trim().min(1, 'Indica la temporada').max(20),
     sort_order: z.coerce.number().int().min(0).max(999),
   })

@@ -3,15 +3,18 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { unwrap, useCategories, usePlayers } from '../../lib/queries'
-import { formatDate, playerName, seasonStart, todayISO } from '../../lib/format'
+import { formatDate, playerName, seasonStart, SPORT_EMOJI, todayISO } from '../../lib/format'
 import { EmptyState, ErrorMessage, PageHeader, Spinner } from '../../components/ui'
+import { useSport } from '../../sport/SportProvider'
 
 export function AttendanceHistoryPage() {
   const [params, setParams] = useSearchParams()
-  const categories = useCategories()
-  const players = usePlayers()
+  const sport = useSport()
+  const categories = useCategories(sport)
+  const players = usePlayers(sport)
 
-  const categoryId = params.get('categoria') || categories.data?.[0]?.id || ''
+  const requestedCategory = params.get('categoria') ?? ''
+  const categoryId = (categories.data?.some((c) => c.id === requestedCategory) ? requestedCategory : categories.data?.[0]?.id) ?? ''
   const to = params.get('hasta') || todayISO()
   const from = params.get('desde') || seasonStart(to)
 
@@ -56,7 +59,7 @@ export function AttendanceHistoryPage() {
       <Link to="/asistencia" className="back-link">
         ← Pasar lista
       </Link>
-      <PageHeader title="Historial de asistencia" subtitle="El porcentaje no cuenta las sesiones en las que el jugador estaba lesionado." />
+      <PageHeader title={`${SPORT_EMOJI[sport]} Historial de asistencia`} subtitle="El porcentaje no cuenta las sesiones en las que el jugador estaba lesionado." />
       <div className="filters">
         <select value={categoryId} onChange={(e) => setParam('categoria', e.target.value)} aria-label="Categoría">
           {categories.data?.map((c) => (

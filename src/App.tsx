@@ -1,10 +1,13 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
-import { RequireAdmin, RequireAuth } from './auth/guards'
+import { RequireAdmin, RequireAuth, RequireSport } from './auth/guards'
 import { Layout, MorePage } from './components/Layout'
 import { LoginPage } from './features/auth/LoginPage'
+import { SportPickerPage } from './features/sport/SportPickerPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { PlayersPage } from './features/players/PlayersPage'
 import { PlayerDetailPage } from './features/players/PlayerDetailPage'
+import { TrainingsPage } from './features/trainings/TrainingsPage'
+import { TrainingEditPage } from './features/trainings/TrainingForm'
 import { AttendancePage } from './features/attendance/AttendancePage'
 import { AttendanceHistoryPage } from './features/attendance/AttendanceHistoryPage'
 import { ReviewsPage } from './features/reviews/ReviewsPage'
@@ -20,15 +23,27 @@ export function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
+          path="/deporte"
           element={
             <RequireAuth>
-              <Layout />
+              <SportPickerPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          element={
+            <RequireAuth>
+              <RequireSport>
+                <Layout />
+              </RequireSport>
             </RequireAuth>
           }
         >
           <Route index element={<DashboardPage />} />
           <Route path="jugadores" element={<PlayersPage />} />
           <Route path="jugadores/:id" element={<PlayerDetailPage />} />
+          <Route path="entrenamientos" element={<TrainingsPage />} />
+          <Route path="entrenamientos/:id" element={<TrainingEditPage />} />
           <Route path="asistencia" element={<AttendancePage />} />
           <Route path="asistencia/historial" element={<AttendanceHistoryPage />} />
           <Route path="revisiones" element={<ReviewsPage />} />

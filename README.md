@@ -1,13 +1,16 @@
 # JUDEVAL · App de entrenadores
 
-Aplicación web privada para el equipo técnico de la escuela de fútbol sala JUDEVAL. Basada en la guía
-«Acompañar, unir y hacer equipo»:
+Aplicación web privada para el equipo técnico de la Escuela Deportiva JUDEVAL (**fútbol sala ⚽ y voley 🏐**).
+Basada en la guía «Acompañar, unir y hacer equipo»:
 
-- **Jugadores**: ficha por categoría con disponibilidad, consideraciones físicas, asistencia y cronología de notas
+- **Deporte activo**: tras iniciar sesión se elige deporte y toda la app muestra solo sus datos. Se cambia desde la pastilla del menú, «Más» o «Mi perfil».
+- **Inicio**: entrenamientos programados (próximos 14 días), seguimientos pendientes (con ➕ para crear uno) y jugadores «sin noticias individuales» en X días (X lo configura cada entrenador).
+- **Jugadores**: ficha por categoría con disponibilidad, consideraciones físicas, asistencia, revisiones en las que se le menciona y cronología de notas
   (observaciones, conversaciones individuales, reconocimientos e incidencias) con seguimientos pendientes.
+- **Entrenamientos**: planificación de cada sesión (fecha, hora, duración, categoría, notas y ejercicios opcionales). Sobre esa misma sesión se pasa lista.
 - **Asistencia**: pasar lista desde el móvil (presente, ausente, justificado o lesionado), pregunta de cierre e historial con porcentajes.
-- **Revisiones del equipo técnico**: las 6 preguntas de la guía y acciones con responsable y fecha.
-- **Compromisos**: «Nuestro estilo Judeval».
+- **Revisiones**: texto libre con lo que se ha visto o se quiere resaltar, con jugadores etiquetados opcionalmente.
+- **Compromisos**: «Nuestro estilo Judeval», con estado (Objetivo Cumplido, Pendiente o No Conseguido) y filtros.
 - **Guía rápida**: resumen de la guía.
 - **Administración**: altas y bajas de entrenadores, roles, contraseñas y categorías.
 
@@ -214,5 +217,34 @@ Cada `git push` a `main` vuelve a desplegar la web automáticamente.
   1. Crea una migración nueva con `npx supabase migration new nombre` y prueba en local con `npm run db:reset`, `npm run db:test` y `npm run smoke`.
   2. Aplícala en la nube con `npx supabase db push`.
   3. Regenera los tipos con `npm run db:types`.
-- **Días de entrenamiento**: Lunes y miércoles se dedujeron de las notas de disponibilidad. Revísalo en **Admin → Categorías**, porque determina qué aparece en «Entrenamientos de hoy».
+- **Días de entrenamiento**: Lunes y miércoles se dedujeron de las notas de disponibilidad, también para las categorías de voley (copiadas de las de fútbol sala). Revísalo en **Admin → Categorías**, donde además se elige el deporte de cada categoría.
 - **Nueva temporada**: actualiza la temporada de las categorías y cambia el estado de los jugadores que se van a «Baja». Así se conserva su historial.
+
+---
+
+## 6. Publicar una actualización que cambia la base de datos
+
+Cuando una versión incluye una migración nueva en `supabase/migrations/` (por ejemplo, `20261031120000_sports_trainings.sql`,
+que añade deportes, entrenamientos planificados, revisiones libres y estados de compromisos), **el orden importa**:
+la web nueva necesita la base de datos ya migrada.
+
+1. **Copia de seguridad** (la migración de revisiones convierte las 6 respuestas antiguas en un único texto y elimina esas columnas):
+
+   ```bash
+   npx supabase db dump --linked --data-only -f backups/antes-de-migrar-AAAA-MM-DD.sql
+   ```
+
+2. **Aplicar la migración** en Supabase:
+
+   ```bash
+   npx supabase db push
+   ```
+
+   (Sin CLI: pega el contenido del archivo de la migración en **SQL Editor** y ejecútalo una vez.)
+3. **Comprobar** en Supabase → Table Editor → `categories` que existen «Cadetes» y «Juveniles» de voley.
+4. **Publicar la web**: `git add .`, `git commit -m "…"` y `git push`. Vercel la despliega solo en 1–2 minutos.
+
+La Edge Function `admin-users` no cambia con esta migración y no hace falta volver a desplegarla.
+
+> Trabajar en local con `.env.local` apuntando a producción modifica los datos reales. Para pruebas, usa el Supabase local
+> (`npm run db:start`) y sus claves (`npx supabase status`).

@@ -4,11 +4,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { unwrap, unwrapMaybe, useCategories } from '../../lib/queries'
-import { ATTENDANCE_LABELS, formatDate, playerName, POSITION_LABELS, seasonStart, STATUS_LABELS, todayISO } from '../../lib/format'
+import {
+  ATTENDANCE_LABELS,
+  formatDate,
+  playerName,
+  POSITION_LABELS,
+  seasonStart,
+  SPORT_EMOJI,
+  SPORT_LABELS,
+  STATUS_LABELS,
+  todayISO,
+} from '../../lib/format'
 import { useAuth } from '../../auth/AuthProvider'
 import { Badge, ConfirmButton, EmptyState, ErrorMessage, Spinner } from '../../components/ui'
 import { PlayerForm } from './PlayerForm'
 import { NoteForm, NoteList } from './Notes'
+import { useSport } from '../../sport/SportProvider'
 
 const ATTENDANCE_TONE = { presente: 'success', ausente: 'danger', justificado: 'info', lesionado: 'warn' } as const
 
@@ -17,6 +28,7 @@ export function PlayerDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { isAdmin } = useAuth()
+  const sport = useSport()
   const categories = useCategories()
   const [editing, setEditing] = useState(false)
   const [addingNote, setAddingNote] = useState(false)
@@ -48,6 +60,14 @@ export function PlayerDetailPage() {
           .eq('player_id', id)
           .gte('session.session_date', from),
       ).sort((a, b) => b.session.session_date.localeCompare(a.session.session_date)),
+  })
+
+  const mentions = useQuery({
+    queryKey: ['reviews', 'player', id],
+    queryFn: async () =>
+      unwrap(
+        await supabase.from('review_players').select('review:staff_reviews!inner(id, review_date, body)').eq('player_id', id),
+      ).sort((a, b) => b.review.review_date.localeCompare(a.review.review_date)),
   })
 
   const remove = useMutation({
@@ -101,6 +121,12 @@ export function PlayerDetailPage() {
         </div>
       </header>
       {remove.isError && <ErrorMessage message={toMessage(remove.error)} />}
+      {category && category.sport !== sport && (
+        <div className="alert alert-info" role="status">
+          Este jugador es de {SPORT_EMOJI[category.sport]} {SPORT_LABELS[category.sport]}. Estás trabajando en{' '}
+          {SPORT_LABELS[sport]}.
+        </div>
+      )}
 
       <div className="grid-2">
         <section className="card">
@@ -133,6 +159,25 @@ export function PlayerDetailPage() {
           </ul>
         )}
       </section>
+
+      {mentions.isError && <ErrorMessage error={mentions.error} onRetry={mentions.refetch} />}
+      {mentions.data && mentions.data.length > 0 && (
+        <section className="card">
+          <h2>📝 Mencionado en revisiones</h2>
+          <ul className="list">
+            {mentions.data.map(({ review }) => (
+              <li key={review.id}>
+                <Link to={`/revisiones/${review.id}`} className="list-link">
+                  <span className="list-main">
+                    <strong>{formatDate(review.review_date)}</strong>
+                    <span className="clamp">{review.body}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="stack-sm">
         <div className="page-header">

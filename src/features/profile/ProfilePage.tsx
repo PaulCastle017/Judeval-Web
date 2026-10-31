@@ -2,13 +2,16 @@ import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
-import { ROLE_LABELS } from '../../lib/format'
+import { Link } from 'react-router-dom'
+import { ROLE_LABELS, SPORT_EMOJI, SPORT_LABELS } from '../../lib/format'
+import { useSport } from '../../sport/SportProvider'
 import { changePasswordSchema, parseForm, profileSchema, type FieldErrors } from '../../lib/validation'
 import { useAuth } from '../../auth/AuthProvider'
 import { ErrorMessage, Field, PageHeader, SuccessMessage } from '../../components/ui'
 
 export function ProfilePage() {
   const { profile, refreshProfile } = useAuth()
+  const sport = useSport()
   const queryClient = useQueryClient()
 
   const [fullName, setFullName] = useState(profile?.full_name ?? '')
@@ -49,6 +52,18 @@ export function ProfilePage() {
   return (
     <div className="stack">
       <PageHeader title="Mi perfil" subtitle={`${profile.email} · ${ROLE_LABELS[profile.role]}`} />
+
+      <section className="card row space-between">
+        <div>
+          <h2>Deporte</h2>
+          <p className="muted">
+            Estás trabajando en {SPORT_EMOJI[sport]} {SPORT_LABELS[sport]}.
+          </p>
+        </div>
+        <Link to="/deporte" state={{ from: '/perfil' }} className="btn">
+          Cambiar de deporte
+        </Link>
+      </section>
 
       <form className="card stack" onSubmit={saveName} noValidate>
         <h2>Datos</h2>

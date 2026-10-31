@@ -1,5 +1,23 @@
 import type { Enums, Tables } from '../types/database'
 
+export const SPORTS: Enums<'sport_type'>[] = ['futsal', 'voley']
+
+export const SPORT_LABELS: Record<Enums<'sport_type'>, string> = {
+  futsal: 'Fútbol sala',
+  voley: 'Voley',
+}
+
+export const SPORT_EMOJI: Record<Enums<'sport_type'>, string> = {
+  futsal: '⚽',
+  voley: '🏐',
+}
+
+export const COMMITMENT_STATUS_LABELS: Record<Enums<'commitment_status'>, string> = {
+  pendiente: 'Objetivo Pendiente',
+  cumplido: 'Objetivo Cumplido',
+  no_conseguido: 'Objetivo No Conseguido',
+}
+
 export const NOTE_TYPE_LABELS: Record<Enums<'note_type'>, string> = {
   observacion: 'Observación',
   conversacion: 'Conversación',
@@ -106,4 +124,32 @@ export function formatLongDate(iso: string): string {
 
 export function formatTime(t: string | null | undefined): string {
   return t ? t.slice(0, 5) : ''
+}
+
+/** Hora de fin (HH:MM) a partir de inicio + minutos. */
+export function endTime(start: string | null | undefined, minutes: number | null | undefined): string {
+  if (!start || !minutes) return ''
+  const [h, m] = start.split(':').map(Number)
+  const total = (h * 60 + m + minutes) % (24 * 60)
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
+/** Minutos entre dos horas HH:MM (para proponer la duración a partir del horario de la categoría). */
+export function minutesBetween(start: string | null | undefined, end: string | null | undefined): number | null {
+  if (!start || !end) return null
+  const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
+  const diff = toMin(end) - toMin(start)
+  return diff > 0 ? diff : null
+}
+
+/** «Hoy», «Mañana» o la fecha larga. */
+export function relativeDayLabel(iso: string, today = todayISO()): string {
+  if (iso === today) return 'Hoy'
+  if (iso === addDays(today, 1)) return 'Mañana'
+  return formatLongDate(iso)
+}
+
+/** Días transcurridos entre dos fechas ISO. */
+export function daysBetween(fromIso: string, toIso: string): number {
+  return Math.round((parseISODate(toIso).getTime() - parseISODate(fromIso).getTime()) / 86_400_000)
 }

@@ -1,76 +1,93 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useMemo, useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { staffName, unwrap, unwrapMaybe, usePlayers, useStaff } from '../../lib/queries'
 import { formatDate, playerName, todayISO } from '../../lib/format'
-import { parseForm, reviewActionSchema, reviewSchema, type FieldErrors } from '../../lib/validation'
+import { parseForm, reviewSchema, type FieldErrors } from '../../lib/validation'
 import { useAuth } from '../../auth/AuthProvider'
-import { ConfirmButton, EmptyState, ErrorMessage, Field, Spinner, SuccessMessage } from '../../components/ui'
+import { useSport } from '../../sport/SportProvider'
+import { ConfirmButton, ErrorMessage, Field, Spinner, SuccessMessage } from '../../components/ui'
 import type { Tables } from '../../types/database'
 
-// Preguntas de la sección 8 de la guía
-const QUESTIONS = [
-  { key: 'integration', label: '¿Quién parece más integrado y quién está quedando al margen?' },
-  { key: 'coherence', label: '¿Estamos corrigiendo de forma coherente entre entrenadores?' },
-  { key: 'positive_behaviors', label: '¿Qué comportamientos positivos hemos reconocido últimamente?' },
-  { key: 'conflicts', label: '¿Hay algún conflicto que requiera seguimiento o coordinación?' },
-  { key: 'privacy', label: '¿Estamos respetando la privacidad y los protocolos de protección?' },
-  { key: 'next_change', label: '¿Qué pequeño cambio podemos probar durante las próximas dos semanas?' },
-] as const
+const MAX_BODY = 8000
+const normalize = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
 
-type Review = Tables<'staff_reviews'>
+type ReviewWithPlayers = Tables<'staff_reviews'> & { review_players: { player_id: string }[] }
 
+/** /revisiones/nueva (alta) o /revisiones/:id (edición). */
 export function ReviewDetailPage() {
   const { id = '' } = useParams()
+  const isNew = id === 'nueva'
   const review = useQuery({
-    queryKey: ['reviews', id],
-    queryFn: async () => unwrapMaybe(await supabase.from('staff_reviews').select('*').eq('id', id).maybeSingle()),
+    enabled: !isNew,
+    queryKey: ['reviews', 'detail', id],
+    queryFn: async () =>
+      unwrapMaybe(await supabase.from('staff_reviews').select('*, review_players(player_id)').eq('id', id).maybeSingle()),
   })
 
-  if (review.isPending) return <Spinner />
+  if (!isNew && review.isPending) return <Spinner />
   if (review.isError) return <ErrorMessage error={review.error} onRetry={review.refetch} />
-  if (!review.data) return <ErrorMessage message="Revisión no encontrada." />
+  if (!isNew && !review.data) return <ErrorMessage message="Revisión no encontrada." />
 
   return (
     <div className="stack">
       <Link to="/revisiones" className="back-link">
         ← Revisiones
       </Link>
-      <ReviewForm key={review.data.id} review={review.data} />
-      <ReviewActions reviewId={review.data.id} />
+      <ReviewForm key={review.data?.id ?? 'nueva'} review={isNew ? null : review.data!} />
     </div>
   )
 }
 
-function ReviewForm({ review }: { review: Review }) {
+function ReviewForm({ review }: { review: ReviewWithPlayers | null }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const sport = useSport()
   const { profile, isAdmin } = useAuth()
   const staff = useStaff()
-  const [form, setForm] = useState({
-    review_date: review.review_date,
-    integration: review.integration,
-    coherence: review.coherence,
-    positive_behaviors: review.positive_behaviors,
-    conflicts: review.conflicts,
-    privacy: review.privacy,
-    next_change: review.next_change,
-  })
+  // Jugadores del deporte de la revisión (normalmente el activo)
+  const players = usePlayers(review?.sport ?? sport)
+
+  const [reviewDate, setReviewDate] = useState(review?.review_date ?? todayISO())
+  const [body, setBody] = useState(review?.body ?? '')
+  const [selected, setSelected] = useState<string[]>(review?.review_players.map((r) => r.player_id) ?? [])
+  const [search, setSearch] = useState('')
   const [errors, setErrors] = useState<FieldErrors>({})
-  const [saved, setSaved] = useState(false)
+  const location = useLocation()
+  const [saved, setSaved] = useState(() => !!(location.state as { justSaved?: boolean } | null)?.justSaved)
+
+  const candidates = useMemo(() => {
+    const term = normalize(search.trim())
+    return (players.data ?? []).filter(
+      (p) => p.status !== 'baja' && !selected.includes(p.id) && (!term || normalize(`${p.first_name} ${p.last_name} ${p.display_name}`).includes(term)),
+    )
+  }, [players.data, selected, search])
+  const playerById = new Map(players.data?.map((p) => [p.id, p]))
 
   const save = useMutation({
+    // RPC: guarda la revisión y sus jugadores etiquetados en una sola transacción
     mutationFn: async (values: ReturnType<typeof reviewSchema.parse>) =>
-      unwrap(await supabase.from('staff_reviews').update(values).eq('id', review.id).select('id').single()),
-    onSuccess: async () => {
+      unwrap(
+        await supabase.rpc('save_review', {
+          // null explícito en un alta: si se omitiera, PostgREST no encontraría la función
+          p_id: (review?.id ?? null) as string,
+          p_sport: review?.sport ?? sport,
+          p_review_date: values.review_date,
+          p_body: values.body,
+          p_player_ids: values.player_ids,
+        }),
+      ),
+    onSuccess: async (id) => {
       setSaved(true)
       await queryClient.invalidateQueries({ queryKey: ['reviews'] })
+      // Al crear, la página se vuelve a montar con el id nuevo: el aviso viaja en el estado de navegación
+      if (!review) navigate(`/revisiones/${id}`, { replace: true, state: { justSaved: true } })
     },
   })
   const remove = useMutation({
-    mutationFn: async () => unwrap(await supabase.from('staff_reviews').delete().eq('id', review.id).select('id')),
+    mutationFn: async () => unwrap(await supabase.from('staff_reviews').delete().eq('id', review!.id).select('id')),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['reviews'] })
       navigate('/revisiones', { replace: true })
@@ -80,188 +97,96 @@ function ReviewForm({ review }: { review: Review }) {
   function onSubmit(e: FormEvent) {
     e.preventDefault()
     setSaved(false)
-    const parsed = parseForm(reviewSchema, form)
+    const parsed = parseForm(reviewSchema, { review_date: reviewDate, body, player_ids: selected })
     if (!parsed.ok) return setErrors(parsed.errors)
     setErrors({})
     save.mutate(parsed.data)
   }
 
+  function toggle(id: string) {
+    setSaved(false)
+    setSelected((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]))
+  }
+
   return (
-    <form className="card stack" onSubmit={onSubmit} noValidate>
+    <form className="stack" onSubmit={onSubmit} noValidate>
       <header className="page-header">
         <div>
-          <h1>Revisión del {formatDate(review.review_date)}</h1>
-          <p className="muted small">Creada por {staffName(staff.data, review.created_by)}</p>
+          <h1>{review ? `Revisión del ${formatDate(review.review_date)}` : 'Nueva revisión'}</h1>
+          {review && <p className="muted small">Escrita por {staffName(staff.data, review.created_by)}</p>}
         </div>
-        {(isAdmin || review.created_by === profile?.id) && (
-          <ConfirmButton onConfirm={() => remove.mutate()} confirmText="Borrar revisión y acciones" disabled={remove.isPending}>
+        {review && (isAdmin || review.created_by === profile?.id) && (
+          <ConfirmButton onConfirm={() => remove.mutate()} confirmText="Borrar revisión" disabled={remove.isPending}>
             Borrar
           </ConfirmButton>
         )}
       </header>
       {remove.isError && <ErrorMessage message={toMessage(remove.error)} />}
-      <Field label="Fecha" error={errors.review_date}>
-        <input type="date" value={form.review_date} onChange={(e) => setForm({ ...form, review_date: e.target.value })} />
-      </Field>
-      {QUESTIONS.map((q) => (
-        <Field key={q.key} label={q.label} error={errors[q.key]}>
+
+      <section className="card stack">
+        <Field label="Fecha" error={errors.review_date}>
+          <input type="date" value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} className="input-auto" />
+        </Field>
+        <Field
+          label="¿Qué has visto? ¿Qué quieres resaltar?"
+          error={errors.body}
+          hint={`${body.length}/${MAX_BODY} · Describe conductas, no etiquetas. Sin diagnósticos no confirmados.`}
+        >
           <textarea
-            rows={3}
-            maxLength={4000}
-            value={form[q.key]}
+            rows={10}
+            maxLength={MAX_BODY}
+            value={body}
+            placeholder="Escribe libremente: cómo ha ido el grupo, avances, preocupaciones, ideas para las próximas semanas…"
             onChange={(e) => {
               setSaved(false)
-              setForm({ ...form, [q.key]: e.target.value })
+              setBody(e.target.value)
             }}
           />
         </Field>
-      ))}
-      <p className="muted small">
-        Las observaciones deben tratarse con discreción. No incluir diagnósticos no confirmados ni información personal innecesaria.
-      </p>
+      </section>
+
+      <section className="card stack-sm">
+        <h2>👥 Jugadores mencionados (opcional)</h2>
+        {selected.length > 0 ? (
+          <ul className="chips">
+            {selected.map((id) => {
+              const p = playerById.get(id)
+              return (
+                <li key={id}>
+                  <button type="button" className="chip chip-on" onClick={() => toggle(id)} aria-label={`Quitar ${p ? playerName(p) : 'jugador'}`}>
+                    {p ? playerName(p) : '…'} ✕
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        ) : (
+          <p className="muted small">Ninguno seleccionado.</p>
+        )}
+        <input type="search" placeholder="Buscar jugador para etiquetar…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        {players.isPending && <Spinner />}
+        {players.isError && <ErrorMessage error={players.error} onRetry={players.refetch} />}
+        <ul className="chips">
+          {candidates.map((p) => (
+            <li key={p.id}>
+              <button type="button" className="chip" onClick={() => toggle(p.id)}>
+                + {playerName(p)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       {save.isError && <ErrorMessage message={toMessage(save.error)} />}
       {saved && <SuccessMessage>Revisión guardada.</SuccessMessage>}
-      <div>
-        <button className="btn btn-primary" disabled={save.isPending}>
+      <div className="row sticky-actions">
+        <button className="btn btn-primary btn-large" disabled={save.isPending}>
           {save.isPending ? 'Guardando…' : 'Guardar revisión'}
         </button>
+        <Link to="/revisiones" className="btn btn-ghost">
+          Volver
+        </Link>
       </div>
     </form>
-  )
-}
-
-function ReviewActions({ reviewId }: { reviewId: string }) {
-  const queryClient = useQueryClient()
-  const staff = useStaff()
-  const players = usePlayers()
-  const [form, setForm] = useState({ description: '', player_id: '', owner_id: '', due_date: '' })
-  const [errors, setErrors] = useState<FieldErrors>({})
-
-  const actions = useQuery({
-    queryKey: ['review_actions', reviewId],
-    queryFn: async () =>
-      unwrap(await supabase.from('review_actions').select('*').eq('review_id', reviewId).order('done').order('due_date', { nullsFirst: false })),
-  })
-
-  const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['review_actions'] })
-    await queryClient.invalidateQueries({ queryKey: ['reviews'] })
-  }
-
-  const add = useMutation({
-    mutationFn: async (values: ReturnType<typeof reviewActionSchema.parse>) =>
-      unwrap(await supabase.from('review_actions').insert({ ...values, review_id: reviewId }).select('id').single()),
-    onSuccess: async () => {
-      setForm({ description: '', player_id: '', owner_id: '', due_date: '' })
-      await invalidate()
-    },
-  })
-  const toggle = useMutation({
-    mutationFn: async ({ id, done }: { id: string; done: boolean }) =>
-      unwrap(await supabase.from('review_actions').update({ done }).eq('id', id).select('id').single()),
-    onSuccess: invalidate,
-  })
-  const remove = useMutation({
-    mutationFn: async (id: string) => unwrap(await supabase.from('review_actions').delete().eq('id', id).select('id')),
-    onSuccess: invalidate,
-  })
-
-  function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    const parsed = parseForm(reviewActionSchema, form)
-    if (!parsed.ok) return setErrors(parsed.errors)
-    setErrors({})
-    add.mutate(parsed.data)
-  }
-
-  const activeStaff = staff.data?.filter((s) => s.active) ?? []
-  const activePlayers = players.data?.filter((p) => p.status !== 'baja') ?? []
-  const playerById = new Map(players.data?.map((p) => [p.id, p]))
-
-  return (
-    <section className="card stack">
-      <h2>Acciones acordadas</h2>
-      {actions.isPending && <Spinner />}
-      {actions.isError && <ErrorMessage error={actions.error} onRetry={actions.refetch} />}
-      {toggle.isError && <ErrorMessage message={toMessage(toggle.error)} />}
-      {remove.isError && <ErrorMessage message={toMessage(remove.error)} />}
-      {actions.isSuccess && actions.data.length === 0 && <EmptyState>Sin acciones todavía.</EmptyState>}
-      {actions.isSuccess && actions.data.length > 0 && (
-        <ul className="list">
-          {actions.data.map((a) => {
-            const player = a.player_id ? playerById.get(a.player_id) : undefined
-            const overdue = !a.done && a.due_date && a.due_date < todayISO()
-            return (
-              <li key={a.id} className="action-row">
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={a.done}
-                    disabled={toggle.isPending}
-                    onChange={(e) => toggle.mutate({ id: a.id, done: e.target.checked })}
-                  />
-                  <span className={a.done ? 'done' : ''}>{a.description}</span>
-                </label>
-                <span className="muted small">
-                  {player && (
-                    <>
-                      <Link to={`/jugadores/${player.id}`}>{playerName(player)}</Link> ·{' '}
-                    </>
-                  )}
-                  {a.owner_id ? staffName(staff.data, a.owner_id) : 'Sin responsable'}
-                  {a.due_date && <span className={overdue ? 'text-danger' : ''}> · antes del {formatDate(a.due_date)}</span>}
-                </span>
-                <ConfirmButton onConfirm={() => remove.mutate(a.id)} className="btn btn-ghost btn-small" confirmText="Borrar">
-                  ✕
-                </ConfirmButton>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-
-      <form className="stack-sm add-action" onSubmit={onSubmit} noValidate>
-        <h3>Nueva acción</h3>
-        {add.isError && <ErrorMessage message={toMessage(add.error)} />}
-        <Field label="Descripción" error={errors.description}>
-          <input
-            value={form.description}
-            maxLength={500}
-            placeholder="p. ej. Hablar en privado con… / Probar parejas variadas"
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
-        </Field>
-        <div className="grid-3">
-          <Field label="Jugador (opcional)" error={errors.player_id}>
-            <select value={form.player_id} onChange={(e) => setForm({ ...form, player_id: e.target.value })}>
-              <option value="">—</option>
-              {activePlayers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {playerName(p)}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Responsable" error={errors.owner_id}>
-            <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })}>
-              <option value="">—</option>
-              {activeStaff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.full_name || s.email}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Fecha límite" error={errors.due_date}>
-            <input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
-          </Field>
-        </div>
-        <div>
-          <button className="btn" disabled={add.isPending}>
-            {add.isPending ? 'Añadiendo…' : 'Añadir acción'}
-          </button>
-        </div>
-      </form>
-    </section>
   )
 }

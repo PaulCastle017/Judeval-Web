@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useCategories, usePlayers } from '../../lib/queries'
-import { playerName, POSITION_LABELS, STATUS_LABELS } from '../../lib/format'
+import { playerName, POSITION_LABELS, SPORT_EMOJI, STATUS_LABELS } from '../../lib/format'
 import { Badge, EmptyState, ErrorMessage, PageHeader, Spinner } from '../../components/ui'
 import { PlayerForm } from './PlayerForm'
+import { useSport } from '../../sport/SportProvider'
 
 const STATUS_FILTERS = [
   { value: 'vigentes', label: 'Activos y lesionados' },
@@ -18,13 +19,16 @@ const normalize = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '
 export function PlayersPage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const categoryFilter = params.get('categoria') ?? ''
+  const sport = useSport()
   const statusFilter = params.get('estado') ?? 'vigentes'
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
 
-  const categories = useCategories()
-  const players = usePlayers()
+  const categories = useCategories(sport)
+  const players = usePlayers(sport)
+  // Una categoría de otro deporte en la URL se ignora
+  const requestedCategory = params.get('categoria') ?? ''
+  const categoryFilter = categories.data?.some((c) => c.id === requestedCategory) ? requestedCategory : ''
 
   const grouped = useMemo(() => {
     const term = normalize(search.trim())
@@ -60,7 +64,7 @@ export function PlayersPage() {
   return (
     <div className="stack">
       <PageHeader
-        title="Jugadores"
+        title={`${SPORT_EMOJI[sport]} Jugadores`}
         actions={
           <button className="btn btn-primary" onClick={() => setCreating(true)}>
             + Nuevo jugador

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './AuthProvider'
+import { useSportState } from '../sport/SportProvider'
 import { ErrorMessage, FullPageSpinner } from '../components/ui'
 
 export function RequireAuth({ children }: { children: ReactNode }) {
@@ -40,6 +41,14 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     )
   }
 
+  return <>{children}</>
+}
+
+/** Exige haber elegido deporte; si no, lleva a /deporte y vuelve después a la ruta pedida. */
+export function RequireSport({ children }: { children: ReactNode }) {
+  const { sport } = useSportState()
+  const location = useLocation()
+  if (!sport) return <Navigate to="/deporte" replace state={{ from: location.pathname + location.search }} />
   return <>{children}</>
 }
 

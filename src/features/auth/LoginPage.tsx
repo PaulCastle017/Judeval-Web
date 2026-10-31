@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { loginSchema, parseForm, type FieldErrors } from '../../lib/validation'
 import { useAuth } from '../../auth/AuthProvider'
+import { clearAllStoredSports } from '../../sport/storage'
 import { ErrorMessage, Field } from '../../components/ui'
 
 export function LoginPage() {
@@ -27,6 +28,9 @@ export function LoginPage() {
     if (!parsed.ok) return setErrors(parsed.errors)
     setErrors({})
     setSubmitting(true)
+    // Cada inicio de sesión pasa por la elección de deporte (se borra antes, porque
+    // el evento de sesión puede llegar antes de que termine signInWithPassword).
+    clearAllStoredSports()
     const { error } = await supabase.auth.signInWithPassword(parsed.data)
     setSubmitting(false)
     if (error) setSubmitError(toMessage(error))

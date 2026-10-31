@@ -6,6 +6,7 @@ import { unwrap, useCategories } from '../../lib/queries'
 import { POSITION_LABELS, STATUS_LABELS } from '../../lib/format'
 import { parseForm, playerSchema, type FieldErrors } from '../../lib/validation'
 import { ErrorMessage, Field } from '../../components/ui'
+import { useSport } from '../../sport/SportProvider'
 import type { Tables } from '../../types/database'
 
 type Props = {
@@ -17,7 +18,11 @@ type Props = {
 
 export function PlayerForm({ player, defaultCategoryId, onSaved, onCancel }: Props) {
   const queryClient = useQueryClient()
-  const categories = useCategories()
+  const activeSport = useSport()
+  const allCategories = useCategories()
+  // Alta: categorías del deporte activo. Edición: las del deporte del propio jugador.
+  const formSport = (player && allCategories.data?.find((c) => c.id === player.category_id)?.sport) || activeSport
+  const categoryOptions = allCategories.data?.filter((c) => c.sport === formSport)
   const [form, setForm] = useState({
     category_id: player?.category_id ?? defaultCategoryId ?? '',
     first_name: player?.first_name ?? '',
@@ -73,7 +78,7 @@ export function PlayerForm({ player, defaultCategoryId, onSaved, onCancel }: Pro
         <Field label="Categoría *" error={errors.category_id}>
           <select value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>
             <option value="">— Elige —</option>
-            {categories.data?.map((c) => (
+            {categoryOptions?.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>

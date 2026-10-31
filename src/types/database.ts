@@ -57,14 +57,14 @@ isOneToOne: false
                   ]
                 },"categories": {
                   Row: {
-                    "created_at": string,"end_time": string | null,"id": string,"name": string,"schedule_text": string,"season": string,"sort_order": number,"start_time": string | null,"training_weekdays": (number)[],"updated_at": string
+                    "created_at": string,"end_time": string | null,"id": string,"name": string,"schedule_text": string,"season": string,"sort_order": number,"sport": Database["public"]['Enums']["sport_type"],"start_time": string | null,"training_weekdays": (number)[],"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"end_time"?: string | null,"id"?: string,"name": string,"schedule_text"?: string,"season"?: string,"sort_order"?: number,"start_time"?: string | null,"training_weekdays"?: (number)[],"updated_at"?: string
+                    "created_at"?: string,"end_time"?: string | null,"id"?: string,"name": string,"schedule_text"?: string,"season"?: string,"sort_order"?: number,"sport"?: Database["public"]['Enums']["sport_type"],"start_time"?: string | null,"training_weekdays"?: (number)[],"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"end_time"?: string | null,"id"?: string,"name"?: string,"schedule_text"?: string,"season"?: string,"sort_order"?: number,"start_time"?: string | null,"training_weekdays"?: (number)[],"updated_at"?: string
+                    "created_at"?: string,"end_time"?: string | null,"id"?: string,"name"?: string,"schedule_text"?: string,"season"?: string,"sort_order"?: number,"sport"?: Database["public"]['Enums']["sport_type"],"start_time"?: string | null,"training_weekdays"?: (number)[],"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -199,16 +199,42 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"staff_reviews": {
+                },"review_players": {
                   Row: {
-                    "coherence": string,"conflicts": string,"created_at": string,"created_by": string | null,"id": string,"integration": string,"next_change": string,"positive_behaviors": string,"privacy": string,"review_date": string,"updated_at": string
+                    "created_at": string,"player_id": string,"review_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "coherence"?: string,"conflicts"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"integration"?: string,"next_change"?: string,"positive_behaviors"?: string,"privacy"?: string,"review_date"?: string,"updated_at"?: string
+                    "created_at"?: string,"player_id": string,"review_id": string
                   }
                   Update: {
-                    "coherence"?: string,"conflicts"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"integration"?: string,"next_change"?: string,"positive_behaviors"?: string,"privacy"?: string,"review_date"?: string,"updated_at"?: string
+                    "created_at"?: string,"player_id"?: string,"review_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "review_players_player_id_fkey"
+      columns: ["player_id"]
+isOneToOne: false
+      referencedRelation: "players"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "review_players_review_id_fkey"
+      columns: ["review_id"]
+isOneToOne: false
+      referencedRelation: "staff_reviews"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"staff_reviews": {
+                  Row: {
+                    "body": string,"created_at": string,"created_by": string | null,"id": string,"review_date": string,"sport": Database["public"]['Enums']["sport_type"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "body"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"review_date"?: string,"sport"?: Database["public"]['Enums']["sport_type"],"updated_at"?: string
+                  }
+                  Update: {
+                    "body"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"review_date"?: string,"sport"?: Database["public"]['Enums']["sport_type"],"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -221,34 +247,34 @@ isOneToOne: false
                   ]
                 },"team_commitments": {
                   Row: {
-                    "active": boolean,"category_id": string | null,"created_at": string,"description": string,"id": string,"sort_order": number,"title": string,"updated_at": string
+                    "active": boolean,"category_id": string | null,"created_at": string,"description": string,"id": string,"sort_order": number,"sport": Database["public"]['Enums']["sport_type"],"status": Database["public"]['Enums']["commitment_status"],"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "active"?: boolean,"category_id"?: string | null,"created_at"?: string,"description"?: string,"id"?: string,"sort_order"?: number,"title": string,"updated_at"?: string
+                    "active"?: boolean,"category_id"?: string | null,"created_at"?: string,"description"?: string,"id"?: string,"sort_order"?: number,"sport"?: Database["public"]['Enums']["sport_type"],"status"?: Database["public"]['Enums']["commitment_status"],"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "active"?: boolean,"category_id"?: string | null,"created_at"?: string,"description"?: string,"id"?: string,"sort_order"?: number,"title"?: string,"updated_at"?: string
+                    "active"?: boolean,"category_id"?: string | null,"created_at"?: string,"description"?: string,"id"?: string,"sort_order"?: number,"sport"?: Database["public"]['Enums']["sport_type"],"status"?: Database["public"]['Enums']["commitment_status"],"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
-      foreignKeyName: "team_commitments_category_id_fkey"
-      columns: ["category_id"]
+      foreignKeyName: "team_commitments_category_sport_fkey"
+      columns: ["category_id","sport"]
 isOneToOne: false
       referencedRelation: "categories"
-      referencedColumns: ["id"]
+      referencedColumns: ["id","sport"]
     }
                   ]
                 },"training_sessions": {
                   Row: {
-                    "category_id": string,"closing_question": string,"closing_summary": string,"created_at": string,"created_by": string | null,"id": string,"notes": string,"session_date": string,"updated_at": string
+                    "category_id": string,"closing_question": string,"closing_summary": string,"created_at": string,"created_by": string | null,"duration_minutes": number | null,"exercises": NonNullable<Json>,"id": string,"notes": string,"session_date": string,"start_time": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "category_id": string,"closing_question"?: string,"closing_summary"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"notes"?: string,"session_date": string,"updated_at"?: string
+                    "category_id": string,"closing_question"?: string,"closing_summary"?: string,"created_at"?: string,"created_by"?: string | null,"duration_minutes"?: number | null,"exercises"?: NonNullable<Json>,"id"?: string,"notes"?: string,"session_date": string,"start_time"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "category_id"?: string,"closing_question"?: string,"closing_summary"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"notes"?: string,"session_date"?: string,"updated_at"?: string
+                    "category_id"?: string,"closing_question"?: string,"closing_summary"?: string,"created_at"?: string,"created_by"?: string | null,"duration_minutes"?: number | null,"exercises"?: NonNullable<Json>,"id"?: string,"notes"?: string,"session_date"?: string,"start_time"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -282,12 +308,20 @@ isOneToOne: false
               "ausente": number,"justificado": number,"lesionado": number,"player_id": string,"presente": number,"rate": number,"total": number
             }[]
                            },
+"player_last_news":
+{ Args: { "p_sport": Database["public"]['Enums']["sport_type"] }; Returns: {
+              "last_news_date": string,"player_id": string
+            }[]
+                           },
+"save_review":
+{ Args: { "p_body": string,"p_id": string,"p_player_ids": (string)[],"p_review_date": string,"p_sport": Database["public"]['Enums']["sport_type"] }; Returns: string
+                           },
 "set_note_follow_up_done":
 { Args: { "p_done"?: boolean,"p_note_id": string }; Returns: undefined
                            }
           }
           Enums: {
-            "attendance_status": "presente"|"ausente"|"justificado"|"lesionado","note_topic": "vida_fuera"|"bienestar"|"experiencia"|"necesidades"|"objetivos"|"grupo"|"otro","note_type": "observacion"|"conversacion"|"reconocimiento"|"incidencia","player_position": "jugador"|"portero","player_status": "activo"|"lesionado"|"baja","staff_role": "admin"|"coach"
+            "attendance_status": "presente"|"ausente"|"justificado"|"lesionado","commitment_status": "pendiente"|"cumplido"|"no_conseguido","note_topic": "vida_fuera"|"bienestar"|"experiencia"|"necesidades"|"objetivos"|"grupo"|"otro","note_type": "observacion"|"conversacion"|"reconocimiento"|"incidencia","player_position": "jugador"|"portero","player_status": "activo"|"lesionado"|"baja","sport_type": "futsal"|"voley","staff_role": "admin"|"coach"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -407,7 +441,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "attendance_status": ["presente", "ausente", "justificado", "lesionado"],"note_topic": ["vida_fuera", "bienestar", "experiencia", "necesidades", "objetivos", "grupo", "otro"],"note_type": ["observacion", "conversacion", "reconocimiento", "incidencia"],"player_position": ["jugador", "portero"],"player_status": ["activo", "lesionado", "baja"],"staff_role": ["admin", "coach"]
+            "attendance_status": ["presente", "ausente", "justificado", "lesionado"],"commitment_status": ["pendiente", "cumplido", "no_conseguido"],"note_topic": ["vida_fuera", "bienestar", "experiencia", "necesidades", "objetivos", "grupo", "otro"],"note_type": ["observacion", "conversacion", "reconocimiento", "incidencia"],"player_position": ["jugador", "portero"],"player_status": ["activo", "lesionado", "baja"],"sport_type": ["futsal", "voley"],"staff_role": ["admin", "coach"]
           }
         }
 } as const

@@ -3,7 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
 import { AuthProvider } from './auth/AuthProvider'
+import { SportProvider } from './sport/SportProvider'
 import { configError } from './lib/supabase'
+import '@fontsource-variable/inter'
 import './styles.css'
 
 const queryClient = new QueryClient({
@@ -29,7 +31,9 @@ if (configError) {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <App />
+          <SportProvider>
+            <App />
+          </SportProvider>
         </AuthProvider>
       </QueryClientProvider>
     </StrictMode>,

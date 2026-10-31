@@ -1,249 +1,281 @@
-import type { ReactNode } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { staffName, unwrap, useCategories, usePlayers, useStaff } from '../../lib/queries'
-import { addDays, formatDate, formatLongDate, formatTime, isoWeekday, playerName, todayISO } from '../../lib/format'
+import {
+  addDays,
+  daysBetween,
+  endTime,
+  formatDate,
+  formatLongDate,
+  formatTime,
+  playerName,
+  relativeDayLabel,
+  SPORT_EMOJI,
+  SPORT_LABELS,
+  todayISO,
+} from '../../lib/format'
+import { parseExercises } from '../../lib/validation'
 import { useAuth } from '../../auth/AuthProvider'
+import { useSport } from '../../sport/SportProvider'
+import { readNumberPref, writeNumberPref, type Sport } from '../../sport/storage'
 import { EmptyState, ErrorMessage, Spinner } from '../../components/ui'
+import { NoteForm } from '../players/Notes'
 
-const CONVERSATION_WINDOW_DAYS = 14
+const UPCOMING_DAYS = 14
+const NO_NEWS_DEFAULT = 14
+const NO_NEWS_MIN = 1
+const NO_NEWS_MAX = 90
 
 export function DashboardPage() {
   const { profile } = useAuth()
+  const sport = useSport()
   const today = todayISO()
-  const weekday = isoWeekday(today)
-  const categories = useCategories()
-  const players = usePlayers()
-
-  const todaysCategories = categories.data?.filter((c) => c.training_weekdays.includes(weekday)) ?? []
 
   return (
     <div className="stack">
-      <header>
+      <header className="dash-hello">
         <h1>Hola{profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}</h1>
-        <p className="muted">{formatLongDate(today)}</p>
+        <p className="muted">
+          {formatLongDate(today)} · {SPORT_EMOJI[sport]} {SPORT_LABELS[sport]}
+        </p>
       </header>
 
-      <section className="card">
-        <h2>Entrenamientos de hoy</h2>
-        {categories.isPending && <Spinner />}
-        {categories.isError && <ErrorMessage error={categories.error} onRetry={categories.refetch} />}
-        {categories.isSuccess && todaysCategories.length === 0 && <EmptyState>Hoy no hay entrenamientos programados.</EmptyState>}
-        <TodaySessions categoryIds={todaysCategories.map((c) => c.id)} date={today}>
-          {(done) =>
-            todaysCategories.map((c) => (
-              <div key={c.id} className="today-row">
-                <span>
-                  <strong>{c.name}</strong>{' '}
-                  <span className="muted small">
-                    {formatTime(c.start_time)}–{formatTime(c.end_time)}
-                  </span>
-                  {done.has(c.id) && <span className="small text-success"> · lista pasada ✓</span>}
-                </span>
-                <Link className="btn btn-primary btn-small" to={`/asistencia?categoria=${c.id}&fecha=${today}`}>
-                  {done.has(c.id) ? 'Ver lista' : 'Pasar lista'}
-                </Link>
-              </div>
-            ))
-          }
-        </TodaySessions>
-      </section>
-
-      <PendingFollowUps />
-      <OpenActions />
-      <NoRecentConversation players={players.data} categories={categories.data} />
-      <RecentRecognitions />
+      <UpcomingTrainings sport={sport} today={today} />
+      <PendingFollowUps sport={sport} />
+      <NoRecentNews sport={sport} today={today} userId={profile?.id ?? 'anon'} />
     </div>
   )
 }
 
-function TodaySessions({
-  categoryIds,
-  date,
-  children,
-}: {
-  categoryIds: string[]
-  date: string
-  children: (done: Set<string>) => ReactNode
-}) {
-  const sessions = useQuery({
-    enabled: categoryIds.length > 0,
-    queryKey: ['sessions', 'today', date, categoryIds],
+function UpcomingTrainings({ sport, today }: { sport: Sport; today: string }) {
+  const categories = useCategories(sport)
+  const ids = categories.data?.map((c) => c.id) ?? []
+  const until = addDays(today, UPCOMING_DAYS)
+  const trainings = useQuery({
+    enabled: categories.isSuccess,
+    queryKey: ['sessions', 'upcoming', sport, today],
     queryFn: async () =>
-      unwrap(await supabase.from('training_sessions').select('category_id').eq('session_date', date).in('category_id', categoryIds)),
+      ids.length === 0
+        ? []
+        : unwrap(
+            await supabase
+              .from('training_sessions')
+              .select('id, category_id, session_date, start_time, duration_minutes, exercises, attendance(count)')
+              .in('category_id', ids)
+              .gte('session_date', today)
+              .lte('session_date', until)
+              .order('session_date')
+              .order('start_time', { nullsFirst: false })
+              .limit(8),
+          ),
   })
-  return <>{children(new Set(sessions.data?.map((s) => s.category_id)))}</>
+  const catName = new Map(categories.data?.map((c) => [c.id, c.name]))
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>📅 Entrenamientos programados</h2>
+        <Link to="/entrenamientos" className="btn btn-ghost btn-small">
+          Ver todos
+        </Link>
+      </div>
+      {(categories.isPending || trainings.isPending) && <Spinner />}
+      {categories.isError && <ErrorMessage error={categories.error} onRetry={categories.refetch} />}
+      {trainings.isError && <ErrorMessage error={trainings.error} onRetry={trainings.refetch} />}
+      {trainings.isSuccess && trainings.data.length === 0 && (
+        <div className="empty-cta">
+          <EmptyState>No hay entrenamientos programados en los próximos {UPCOMING_DAYS} días.</EmptyState>
+          <Link to="/entrenamientos/nuevo" className="btn btn-primary btn-small">
+            + Crear entrenamiento
+          </Link>
+        </div>
+      )}
+      <ul className="list">
+        {trainings.data?.map((t) => {
+          const isToday = t.session_date === today
+          const listTaken = (t.attendance[0]?.count ?? 0) > 0
+          const exercises = parseExercises(t.exercises).length
+          return (
+            <li key={t.id} className="today-row">
+              <span className="list-main">
+                <span>
+                  <strong className={isToday ? 'text-accent' : ''}>{relativeDayLabel(t.session_date, today)}</strong>
+                  {t.start_time && (
+                    <span className="muted">
+                      {' '}
+                      · {formatTime(t.start_time)}
+                      {t.duration_minutes && `–${endTime(t.start_time, t.duration_minutes)}`}
+                    </span>
+                  )}
+                </span>
+                <span className="muted small">
+                  {catName.get(t.category_id)}
+                  {exercises > 0 && ` · ${exercises} ejercicio${exercises === 1 ? '' : 's'}`}
+                  {listTaken && ' · lista pasada ✓'}
+                </span>
+              </span>
+              {isToday ? (
+                <Link className="btn btn-primary btn-small" to={`/asistencia?categoria=${t.category_id}&fecha=${t.session_date}`}>
+                  {listTaken ? 'Ver lista' : 'Pasar lista'}
+                </Link>
+              ) : (
+                <Link className="btn btn-small" to={`/entrenamientos/${t.id}`}>
+                  Ver
+                </Link>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
 }
 
-function PendingFollowUps() {
+function PendingFollowUps({ sport }: { sport: Sport }) {
   const queryClient = useQueryClient()
-  const notes = useQuery({
-    queryKey: ['notes', 'pending'],
-    queryFn: async () =>
-      unwrap(
-        await supabase
-          .from('player_notes')
-          .select('id, body, note_date, type, author_id, player:players(id, first_name, last_name, display_name)')
-          .eq('follow_up', true)
-          .eq('follow_up_done', false)
-          .order('note_date')
-          .limit(20),
-      ),
-  })
   const staff = useStaff()
+  const players = usePlayers(sport)
+  const [adding, setAdding] = useState(false)
+  const ids = players.data?.map((p) => p.id) ?? []
+
+  const notes = useQuery({
+    enabled: players.isSuccess,
+    queryKey: ['notes', 'pending', sport],
+    queryFn: async () =>
+      ids.length === 0
+        ? []
+        : unwrap(
+            await supabase
+              .from('player_notes')
+              .select('id, body, note_date, type, author_id, player_id')
+              .eq('follow_up', true)
+              .eq('follow_up_done', false)
+              .in('player_id', ids)
+              .order('note_date')
+              .limit(30),
+          ),
+  })
   const resolve = useMutation({
     mutationFn: async (id: string) => unwrap(await supabase.rpc('set_note_follow_up_done', { p_note_id: id, p_done: true })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notes'] }),
   })
+  const playerById = new Map(players.data?.map((p) => [p.id, p]))
 
   return (
     <section className="card">
-      <h2>Seguimientos pendientes</h2>
-      {notes.isPending && <Spinner />}
+      <div className="card-head">
+        <h2>🔔 Seguimientos pendientes</h2>
+        {!adding && (
+          <button className="btn btn-primary btn-small" onClick={() => setAdding(true)} aria-label="Nuevo seguimiento" title="Nuevo seguimiento">
+            ➕ <span className="hide-xs">Nuevo</span>
+          </button>
+        )}
+      </div>
+      {adding && (
+        <NoteForm playerOptions={players.data ?? []} initialType="observacion" initialFollowUp onDone={() => setAdding(false)} />
+      )}
+      {(players.isPending || notes.isPending) && <Spinner />}
+      {players.isError && <ErrorMessage error={players.error} onRetry={players.refetch} />}
       {notes.isError && <ErrorMessage error={notes.error} onRetry={notes.refetch} />}
       {resolve.isError && <ErrorMessage message={toMessage(resolve.error)} />}
-      {notes.isSuccess && notes.data.length === 0 && <EmptyState>No hay seguimientos pendientes.</EmptyState>}
+      {notes.isSuccess && notes.data.length === 0 && !adding && <EmptyState>No hay seguimientos pendientes.</EmptyState>}
       <ul className="list">
-        {notes.data?.map((n) => (
-          <li key={n.id} className="followup-row">
-            <div>
-              <Link to={`/jugadores/${n.player.id}`}>
-                <strong>{playerName(n.player)}</strong>
-              </Link>{' '}
-              <span className="muted small">
-                {formatDate(n.note_date)} · {staffName(staff.data, n.author_id)}
-              </span>
-              <p className="clamp">{n.body}</p>
-            </div>
-            <button className="btn btn-small" onClick={() => resolve.mutate(n.id)} disabled={resolve.isPending}>
-              Resuelto
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
-
-function OpenActions() {
-  const { profile } = useAuth()
-  const staff = useStaff()
-  const actions = useQuery({
-    queryKey: ['review_actions', 'open'],
-    queryFn: async () =>
-      unwrap(
-        await supabase
-          .from('review_actions')
-          .select('id, description, due_date, owner_id, review_id')
-          .eq('done', false)
-          .order('due_date', { nullsFirst: false })
-          .limit(20),
-      ),
-  })
-  const today = todayISO()
-
-  return (
-    <section className="card">
-      <h2>Acciones abiertas del equipo técnico</h2>
-      {actions.isPending && <Spinner />}
-      {actions.isError && <ErrorMessage error={actions.error} onRetry={actions.refetch} />}
-      {actions.isSuccess && actions.data.length === 0 && <EmptyState>No hay acciones pendientes.</EmptyState>}
-      <ul className="list">
-        {actions.data?.map((a) => (
-          <li key={a.id}>
-            <Link to={`/revisiones/${a.review_id}`} className="list-link">
-              <span className="list-main">
-                <span>{a.description}</span>
+        {notes.data?.map((n) => {
+          const player = playerById.get(n.player_id)
+          return (
+            <li key={n.id} className="followup-row">
+              <div>
+                <Link to={`/jugadores/${n.player_id}`}>
+                  <strong>{player ? playerName(player) : 'Jugador'}</strong>
+                </Link>{' '}
                 <span className="muted small">
-                  {a.owner_id === profile?.id ? 'Tú' : a.owner_id ? staffName(staff.data, a.owner_id) : 'Sin responsable'}
+                  {formatDate(n.note_date)} · {staffName(staff.data, n.author_id)}
                 </span>
-              </span>
-              {a.due_date && (
-                <span className={`small ${a.due_date < today ? 'text-danger' : 'muted'}`}>{formatDate(a.due_date)}</span>
-              )}
-            </Link>
-          </li>
-        ))}
+                <p className="clamp">{n.body}</p>
+              </div>
+              <button className="btn btn-small" onClick={() => resolve.mutate(n.id)} disabled={resolve.isPending}>
+                Resuelto
+              </button>
+            </li>
+          )
+        })}
       </ul>
     </section>
   )
 }
 
-function NoRecentConversation({
-  players,
-  categories,
-}: {
-  players: ReturnType<typeof usePlayers>['data']
-  categories: ReturnType<typeof useCategories>['data']
-}) {
-  const since = addDays(todayISO(), -CONVERSATION_WINDOW_DAYS)
-  const recent = useQuery({
-    queryKey: ['notes', 'conversations-since', since],
-    queryFn: async () =>
-      unwrap(await supabase.from('player_notes').select('player_id').eq('type', 'conversacion').gte('note_date', since)),
+function NoRecentNews({ sport, today, userId }: { sport: Sport; today: string; userId: string }) {
+  const prefKey = `judeval.noNewsDays.${userId}`
+  const [days, setDays] = useState(() => readNumberPref(prefKey, NO_NEWS_DEFAULT, NO_NEWS_MIN, NO_NEWS_MAX))
+  const [draft, setDraft] = useState(String(days))
+  const categories = useCategories(sport)
+  const players = usePlayers(sport)
+  const news = useQuery({
+    queryKey: ['notes', 'last-news', sport],
+    queryFn: async () => unwrap(await supabase.rpc('player_last_news', { p_sport: sport })),
   })
 
-  const talked = new Set(recent.data?.map((n) => n.player_id))
-  const pending = (players ?? []).filter((p) => p.active && p.status !== 'baja' && !talked.has(p.id))
-  const catName = new Map(categories?.map((c) => [c.id, c.name]))
+  function commitDays(value: string) {
+    const n = Math.round(Number(value))
+    const clamped = Number.isFinite(n) ? Math.min(NO_NEWS_MAX, Math.max(NO_NEWS_MIN, n)) : days
+    setDays(clamped)
+    setDraft(String(clamped))
+    writeNumberPref(prefKey, clamped)
+  }
+
+  const catName = new Map(categories.data?.map((c) => [c.id, c.name]))
+  const playerById = new Map(players.data?.map((p) => [p.id, p]))
+  const stale = (news.data ?? [])
+    .map((r) => ({ ...r, ago: r.last_news_date ? daysBetween(r.last_news_date, today) : null }))
+    .filter((r) => r.ago === null || r.ago >= days)
+    .sort((a, b) => (b.ago ?? Infinity) - (a.ago ?? Infinity))
 
   return (
     <section className="card">
-      <h2>Sin conversación individual en {CONVERSATION_WINDOW_DAYS} días</h2>
-      <p className="muted small">Propuesta de la guía: dos conversaciones de 5–10 minutos por semana.</p>
-      {recent.isPending && <Spinner />}
-      {recent.isError && <ErrorMessage error={recent.error} onRetry={recent.refetch} />}
-      {recent.isSuccess && pending.length === 0 && <EmptyState>¡Habéis hablado con todos recientemente!</EmptyState>}
-      {recent.isSuccess && pending.length > 0 && (
+      <div className="card-head">
+        <h2>🕒 Sin noticias individuales en {days} días</h2>
+        <label className="inline-field small">
+          Días
+          <input
+            type="number"
+            min={NO_NEWS_MIN}
+            max={NO_NEWS_MAX}
+            className="input-narrow"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={(e) => commitDays(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && commitDays((e.target as HTMLInputElement).value)}
+            aria-label="Número de días sin noticias"
+          />
+        </label>
+      </div>
+      <p className="muted small">
+        Jugadores sin ninguna nota nueva ni actualizada en su seguimiento. La guía propone dos conversaciones de 5–10 minutos por semana.
+      </p>
+      {(news.isPending || players.isPending) && <Spinner />}
+      {news.isError && <ErrorMessage error={news.error} onRetry={news.refetch} />}
+      {news.isSuccess && players.isSuccess && stale.length === 0 && <EmptyState>Todos los jugadores tienen noticias recientes. 👏</EmptyState>}
+      {stale.length > 0 && (
         <ul className="chips">
-          {pending.map((p) => (
-            <li key={p.id}>
-              <Link className="chip" to={`/jugadores/${p.id}`} title={catName.get(p.category_id)}>
-                {playerName(p)} <span className="muted small">· {catName.get(p.category_id)}</span>
-              </Link>
-            </li>
-          ))}
+          {stale.map((r) => {
+            const p = playerById.get(r.player_id)
+            if (!p) return null
+            return (
+              <li key={r.player_id}>
+                <Link className="chip" to={`/jugadores/${p.id}`}>
+                  {playerName(p)}
+                  <span className="muted small">
+                    · {catName.get(p.category_id)} · {r.ago === null ? 'sin notas' : `hace ${r.ago} d`}
+                  </span>
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       )}
-    </section>
-  )
-}
-
-function RecentRecognitions() {
-  const notes = useQuery({
-    queryKey: ['notes', 'recognitions'],
-    queryFn: async () =>
-      unwrap(
-        await supabase
-          .from('player_notes')
-          .select('id, body, note_date, player:players(id, first_name, last_name, display_name)')
-          .eq('type', 'reconocimiento')
-          .order('note_date', { ascending: false })
-          .limit(5),
-      ),
-  })
-
-  return (
-    <section className="card">
-      <h2>Últimos reconocimientos</h2>
-      {notes.isPending && <Spinner />}
-      {notes.isError && <ErrorMessage error={notes.error} onRetry={notes.refetch} />}
-      {notes.isSuccess && notes.data.length === 0 && (
-        <EmptyState>Aún no hay reconocimientos. Señalemos conductas concretas: escuchar, animar, volver a intentarlo…</EmptyState>
-      )}
-      <ul className="list">
-        {notes.data?.map((n) => (
-          <li key={n.id}>
-            <Link to={`/jugadores/${n.player.id}`}>
-              <strong>{playerName(n.player)}</strong>
-            </Link>{' '}
-            <span className="muted small">{formatDate(n.note_date)}</span>
-            <p className="clamp">{n.body}</p>
-          </li>
-        ))}
-      </ul>
     </section>
   )
 }

@@ -1,71 +1,64 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
-import { toMessage } from '../../lib/errors'
-import { staffName, unwrap, useStaff } from '../../lib/queries'
-import { formatDate, todayISO } from '../../lib/format'
+import { staffName, unwrap, usePlayers, useStaff } from '../../lib/queries'
+import { formatDate, playerName, SPORT_EMOJI } from '../../lib/format'
+import { useSport } from '../../sport/SportProvider'
 import { EmptyState, ErrorMessage, PageHeader, Spinner } from '../../components/ui'
 
 export function ReviewsPage() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const sport = useSport()
   const staff = useStaff()
+  const players = usePlayers(sport)
   const reviews = useQuery({
-    queryKey: ['reviews'],
+    queryKey: ['reviews', sport],
     queryFn: async () =>
       unwrap(
         await supabase
           .from('staff_reviews')
-          .select('id, review_date, next_change, created_by, review_actions(done)')
-          .order('review_date', { ascending: false }),
+          .select('id, review_date, body, created_by, review_players(player_id)')
+          .eq('sport', sport)
+          .order('review_date', { ascending: false })
+          .order('created_at', { ascending: false }),
       ),
   })
-
-  const create = useMutation({
-    mutationFn: async () => unwrap(await supabase.from('staff_reviews').insert({ review_date: todayISO() }).select('id').single()),
-    onSuccess: async (row) => {
-      await queryClient.invalidateQueries({ queryKey: ['reviews'] })
-      navigate(`/revisiones/${row.id}`)
-    },
-  })
+  const playerById = new Map(players.data?.map((p) => [p.id, p]))
 
   return (
     <div className="stack">
       <PageHeader
-        title="Revisiones del equipo técnico"
-        subtitle="Reunión breve cada dos o tres semanas para coordinarnos (sección 8 de la guía)."
+        title={`${SPORT_EMOJI[sport]} Revisiones`}
+        subtitle="Lo que hemos visto y queremos resaltar del grupo o de jugadores concretos."
         actions={
-          <button className="btn btn-primary" onClick={() => create.mutate()} disabled={create.isPending}>
-            {create.isPending ? 'Creando…' : '+ Nueva revisión'}
-          </button>
+          <Link to="/revisiones/nueva" className="btn btn-primary">
+            + Nueva revisión
+          </Link>
         }
       />
-      {create.isError && <ErrorMessage message={toMessage(create.error)} />}
       {reviews.isPending && <Spinner />}
       {reviews.isError && <ErrorMessage error={reviews.error} onRetry={reviews.refetch} />}
       {reviews.isSuccess && reviews.data.length === 0 && <EmptyState>Todavía no hay revisiones. Crea la primera.</EmptyState>}
-      {reviews.isSuccess && reviews.data.length > 0 && (
-        <ul className="card list">
-          {reviews.data.map((r) => {
-            const open = r.review_actions.filter((a) => !a.done).length
-            return (
-              <li key={r.id}>
-                <Link to={`/revisiones/${r.id}`} className="list-link">
-                  <span className="list-main">
-                    <strong>{formatDate(r.review_date)}</strong>
-                    <span className="muted small">
-                      {r.next_change ? `Cambio a probar: ${r.next_change}` : `Por ${staffName(staff.data, r.created_by)}`}
-                    </span>
-                  </span>
-                  <span className="muted small">
-                    {r.review_actions.length ? `${open} de ${r.review_actions.length} acciones pendientes` : 'Sin acciones'}
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      {reviews.data?.map((r) => (
+        <Link key={r.id} to={`/revisiones/${r.id}`} className="card review-card">
+          <header className="row space-between">
+            <strong>{formatDate(r.review_date)}</strong>
+            <span className="muted small">{staffName(staff.data, r.created_by)}</span>
+          </header>
+          <p className="clamp review-excerpt">{r.body || <span className="muted">(sin texto)</span>}</p>
+          {r.review_players.length > 0 && (
+            <ul className="chips">
+              {r.review_players.map(({ player_id }) => {
+                const p = playerById.get(player_id)
+                return p ? (
+                  <li key={player_id} className="chip chip-static">
+                    {playerName(p)}
+                  </li>
+                ) : null
+              })}
+            </ul>
+          )}
+        </Link>
+      ))}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
+import type { Sport } from '../sport/storage'
 
 /** Lanza el error de Supabase para que React Query lo gestione. */
 export function unwrap<R extends { data: unknown; error: unknown }>(res: R): NonNullable<R['data']> {
@@ -13,10 +14,15 @@ export function unwrapMaybe<R extends { data: unknown; error: unknown }>(res: R)
   return res.data
 }
 
-export function useCategories() {
+/** Categorías del deporte indicado, o de todos si se omite (Admin, fichas abiertas por enlace). */
+export function useCategories(sport?: Sport) {
   return useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => unwrap(await supabase.from('categories').select('*').order('sort_order').order('name')),
+    queryKey: ['categories', sport ?? 'all'],
+    queryFn: async () => {
+      let q = supabase.from('categories').select('*')
+      if (sport) q = q.eq('sport', sport)
+      return unwrap(await q.order('sport').order('sort_order').order('name'))
+    },
     staleTime: 5 * 60_000,
   })
 }
@@ -37,11 +43,19 @@ export function useCoachCategories() {
   })
 }
 
-/** Jugadores (ligeros) para selectores y listados. */
-export function usePlayers() {
+/** Jugadores del deporte activo (el deporte lo da su categoría). */
+export function usePlayers(sport: Sport) {
   return useQuery({
-    queryKey: ['players'],
-    queryFn: async () => unwrap(await supabase.from('players').select('*').order('first_name').order('display_name')),
+    queryKey: ['players', sport],
+    queryFn: async () =>
+      unwrap(
+        await supabase
+          .from('players')
+          .select('*, category:categories!inner(sport)')
+          .eq('category.sport', sport)
+          .order('first_name')
+          .order('display_name'),
+      ),
   })
 }
 

@@ -33,7 +33,7 @@ const stamp = Date.now()
 const ADMIN_EMAIL = `smoke-admin-${stamp}@test.local`
 const COACH_EMAIL = `smoke-coach-${stamp}@test.local`
 const PASS = 'Prueba1234'
-const created = { users: [], playerId: null, reviewId: null }
+const created = { users: [], playerId: null, reviewId: null, commitmentId: null }
 
 async function callAdminFn(client, body) {
   const { data, error } = await client.functions.invoke('admin-users', { body })
@@ -82,10 +82,17 @@ try {
   check(coachFn.status === 403, 'un entrenador NO puede usar admin-users → 403', coachFn)
 
   console.log('3. Operaciones del entrenador')
-  const { data: cats, error: catErr } = await coach.from('categories').select('id, name').order('sort_order')
-  check(!catErr && cats.length >= 2, `lee categorías (${cats?.length})`, catErr)
+  const { data: cats, error: catErr } = await coach.from('categories').select('id, name, sport').eq('sport', 'futsal').order('sort_order')
+  check(!catErr && cats.length >= 2, `lee categorías de fútbol sala (${cats?.length})`, catErr)
+  const { data: voleyCats } = await coach.from('categories').select('id').eq('sport', 'voley')
+  check(voleyCats?.length >= 2, `existen categorías de voley (${voleyCats?.length})`)
   const { count: seeded } = await coach.from('players').select('*', { count: 'exact', head: true })
   check(seeded >= 24, `lee jugadores del seed (${seeded})`)
+  const { count: voleyPlayers } = await coach
+    .from('players')
+    .select('id, category:categories!inner(sport)', { count: 'exact', head: true })
+    .eq('category.sport', 'voley')
+  check(voleyPlayers === 0, `filtro por deporte: voley no incluye jugadores de fútbol (${voleyPlayers})`)
 
   const { data: player, error: pErr } = await coach
     .from('players')
@@ -128,17 +135,51 @@ try {
   const { error: rpcErr } = await coach.rpc('set_note_follow_up_done', { p_note_id: note.id, p_done: true })
   check(!rpcErr, 'marca seguimiento como resuelto', rpcErr)
 
-  const { data: review, error: rErr } = await coach
-    .from('staff_reviews')
-    .insert({ review_date: today, integration: 'Prueba', next_change: 'Probar parejas' })
+  const { data: reviewId, error: rErr } = await coach.rpc('save_review', {
+    p_id: null,
+    p_sport: 'futsal',
+    p_review_date: today,
+    p_body: 'Revisión libre de prueba',
+    p_player_ids: [player.id],
+  })
+  check(!rErr && reviewId, 'crea revisión libre con jugador etiquetado (RPC save_review)', rErr)
+  created.reviewId = reviewId
+  const { data: tagged } = await coach.from('review_players').select('player_id').eq('review_id', reviewId)
+  check(tagged?.length === 1 && tagged[0].player_id === player.id, 'la etiqueta del jugador queda guardada')
+
+  const { data: training, error: tErr } = await coach
+    .from('training_sessions')
+    .insert({
+      category_id: cats[0].id,
+      session_date: '2030-01-07',
+      start_time: '17:00',
+      duration_minutes: 90,
+      notes: 'Entrenamiento de prueba',
+      exercises: [{ name: 'Rondo 4x2', minutes: 15, notes: '' }],
+    })
     .select()
     .single()
-  check(!rErr, 'crea revisión del equipo técnico', rErr)
-  created.reviewId = review?.id
-  const { error: raErr } = await coach
-    .from('review_actions')
-    .insert({ review_id: review.id, player_id: player.id, description: 'Hablar con el jugador', owner_id: coachId, due_date: today })
-  check(!raErr, 'crea acción de seguimiento', raErr)
+  check(!tErr && training.exercises.length === 1, 'crea entrenamiento planificado con ejercicios', tErr)
+  const { error: dupErr } = await coach.from('training_sessions').insert({ category_id: cats[0].id, session_date: '2030-01-07' })
+  check(dupErr?.code === '23505', 'un segundo entrenamiento misma categoría y día se rechaza (23505)', dupErr)
+
+  const { data: commitment, error: cErr } = await coach
+    .from('team_commitments')
+    .insert({ sport: 'futsal', title: 'Compromiso smoke', status: 'pendiente' })
+    .select()
+    .single()
+  created.commitmentId = commitment?.id
+  const { data: updatedC, error: cuErr } = await coach
+    .from('team_commitments')
+    .update({ status: 'cumplido' })
+    .eq('id', commitment?.id)
+    .select()
+    .single()
+  check(!cErr && !cuErr && updatedC?.status === 'cumplido', 'cambia el estado de un compromiso', cErr ?? cuErr)
+
+  const { data: news, error: newsErr } = await coach.rpc('player_last_news', { p_sport: 'futsal' })
+  const myNews = news?.find((n) => n.player_id === player.id)
+  check(!newsErr && myNews?.last_news_date, 'noticias: el jugador con nota reciente tiene fecha', newsErr ?? myNews)
 
   console.log('4. Permisos negativos')
   const { error: roleErr } = await coach.from('profiles').update({ role: 'admin' }).eq('id', coachId)
@@ -169,6 +210,8 @@ try {
 } finally {
   console.log('6. Limpieza')
   if (created.reviewId) await service.from('staff_reviews').delete().eq('id', created.reviewId)
+  if (created.commitmentId) await service.from('team_commitments').delete().eq('id', created.commitmentId)
+  await service.from('training_sessions').delete().eq('session_date', '2030-01-07')
   if (created.playerId) await service.from('players').delete().eq('id', created.playerId)
   await service.from('training_sessions').delete().eq('session_date', '2000-01-03')
   for (const id of created.users) await service.auth.admin.deleteUser(id)

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { staffName, unwrap, useStaff } from '../../lib/queries'
-import { formatDate, NOTE_TOPIC_LABELS, NOTE_TYPE_LABELS, todayISO } from '../../lib/format'
+import { formatDate, NOTE_TOPIC_LABELS, NOTE_TYPE_LABELS, playerName, todayISO } from '../../lib/format'
 import { noteSchema, parseForm, type FieldErrors } from '../../lib/validation'
 import { useAuth } from '../../auth/AuthProvider'
 import { Badge, ConfirmButton, EmptyState, ErrorMessage, Field } from '../../components/ui'
@@ -25,14 +25,25 @@ const TYPE_HINTS: Record<Enums<'note_type'>, string> = {
   incidencia: 'Qué ocurrió, cómo afecta al grupo, qué se espera y cómo se repara.',
 }
 
-export function NoteForm({ playerId, note, onDone }: { playerId: string; note?: Note; onDone: () => void }) {
+type NoteFormProps = {
+  /** Jugador fijo (desde su ficha). Si se omite, se muestra un selector con `playerOptions`. */
+  playerId?: string
+  playerOptions?: (Tables<'players'> & { category?: unknown })[]
+  note?: Note
+  initialType?: Enums<'note_type'>
+  initialFollowUp?: boolean
+  onDone: () => void
+}
+
+export function NoteForm({ playerId, playerOptions, note, initialType, initialFollowUp, onDone }: NoteFormProps) {
   const queryClient = useQueryClient()
+  const [selectedPlayer, setSelectedPlayer] = useState(playerId ?? '')
   const [form, setForm] = useState({
-    type: note?.type ?? ('conversacion' as Enums<'note_type'>),
+    type: note?.type ?? initialType ?? ('conversacion' as Enums<'note_type'>),
     topic: (note?.topic ?? '') as Enums<'note_topic'> | '',
     body: note?.body ?? '',
     note_date: note?.note_date ?? todayISO(),
-    follow_up: note?.follow_up ?? false,
+    follow_up: note?.follow_up ?? initialFollowUp ?? false,
   })
   const [errors, setErrors] = useState<FieldErrors>({})
 
@@ -41,7 +52,7 @@ export function NoteForm({ playerId, note, onDone }: { playerId: string; note?: 
       if (note) {
         unwrap(await supabase.from('player_notes').update(values).eq('id', note.id).select('id').single())
       } else {
-        unwrap(await supabase.from('player_notes').insert({ ...values, player_id: playerId }).select('id').single())
+        unwrap(await supabase.from('player_notes').insert({ ...values, player_id: selectedPlayer }).select('id').single())
       }
     },
     onSuccess: async () => {
@@ -53,6 +64,7 @@ export function NoteForm({ playerId, note, onDone }: { playerId: string; note?: 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
     const parsed = parseForm(noteSchema, { ...form, topic: form.type === 'conversacion' ? form.topic : '' })
+    if (!note && !selectedPlayer) return setErrors({ ...(parsed.ok ? {} : parsed.errors), player: 'Elige un jugador' })
     if (!parsed.ok) return setErrors(parsed.errors)
     setErrors({})
     save.mutate(parsed.data)
@@ -61,6 +73,20 @@ export function NoteForm({ playerId, note, onDone }: { playerId: string; note?: 
   return (
     <form className="card stack note-form" onSubmit={onSubmit} noValidate>
       {save.isError && <ErrorMessage message={toMessage(save.error)} />}
+      {!note && !playerId && (
+        <Field label="Jugador *" error={errors.player}>
+          <select value={selectedPlayer} onChange={(e) => setSelectedPlayer(e.target.value)} autoFocus>
+            <option value="">— Elige jugador —</option>
+            {playerOptions
+              ?.filter((p) => p.status !== 'baja')
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {playerName(p)}
+                </option>
+              ))}
+          </select>
+        </Field>
+      )}
       <div className="chips" role="radiogroup" aria-label="Tipo de nota">
         {(Object.keys(NOTE_TYPE_LABELS) as Enums<'note_type'>[]).map((t) => (
           <button

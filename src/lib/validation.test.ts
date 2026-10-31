@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { categorySchema, changePasswordSchema, newUserSchema, noteSchema, parseForm, playerSchema, reviewActionSchema } from './validation'
-import { addDays, isoWeekday, playerName, seasonStart } from './format'
+import {
+  categorySchema,
+  changePasswordSchema,
+  commitmentSchema,
+  newUserSchema,
+  noteSchema,
+  parseExercises,
+  parseForm,
+  playerSchema,
+  reviewSchema,
+  trainingSchema,
+} from './validation'
+import { addDays, daysBetween, endTime, isoWeekday, minutesBetween, playerName, relativeDayLabel, seasonStart } from './format'
 
 const CAT = '7d9f0e3a-1b2c-4d5e-8f90-123456789abc'
 
@@ -65,18 +76,69 @@ describe('contraseñas y usuarios', () => {
 })
 
 describe('otros esquemas', () => {
-  it('acción de revisión: campos opcionales vacíos → null', () => {
-    const r = parseForm(reviewActionSchema, { description: 'Hablar con Aitor', player_id: '', owner_id: '', due_date: '' })
-    expect(r.ok && r.data).toEqual({ description: 'Hablar con Aitor', player_id: null, owner_id: null, due_date: null })
+  it('revisión libre: exige texto y acepta jugadores etiquetados', () => {
+    expect(parseForm(reviewSchema, { review_date: '2026-10-31', body: '   ', player_ids: [] }).ok).toBe(false)
+    const r = parseForm(reviewSchema, { review_date: '2026-10-31', body: ' Buen ambiente. ', player_ids: [CAT] })
+    expect(r.ok && r.data).toEqual({ review_date: '2026-10-31', body: 'Buen ambiente.', player_ids: [CAT] })
+    expect(parseForm(reviewSchema, { review_date: '2026-10-31', body: 'x', player_ids: ['no-uuid'] }).ok).toBe(false)
+  })
+  it('compromiso: estado obligatorio y válido', () => {
+    const base = { title: 'Nos respetamos', description: '', category_id: '', sort_order: '1' }
+    expect(parseForm(commitmentSchema, { ...base, status: 'cumplido' }).ok).toBe(true)
+    expect(parseForm(commitmentSchema, { ...base, status: 'quizas' }).ok).toBe(false)
   })
   it('categoría: fin posterior al inicio', () => {
-    const base = { name: 'Cadetes', schedule_text: '', training_weekdays: [1, 3], season: '2026/27', sort_order: 1 }
+    const base = { sport: 'voley', name: 'Cadetes', schedule_text: '', training_weekdays: [1, 3], season: '2026/27', sort_order: 1 }
     expect(parseForm(categorySchema, { ...base, start_time: '18:30', end_time: '17:00' }).ok).toBe(false)
     expect(parseForm(categorySchema, { ...base, start_time: '17:00', end_time: '18:30' }).ok).toBe(true)
   })
 })
 
+describe('entrenamientos', () => {
+  const base = { category_id: CAT, session_date: '2026-11-02', start_time: '17:00', duration_minutes: '90', notes: '' }
+  it('normaliza campos vacíos y ejercicios', () => {
+    const r = parseForm(trainingSchema, {
+      ...base,
+      start_time: '',
+      duration_minutes: '',
+      exercises: [{ name: ' Rondo 4x2 ', minutes: '15', notes: '' }, { name: 'Partido', minutes: '', notes: 'Final' }],
+    })
+    expect(r.ok && r.data).toEqual({
+      category_id: CAT,
+      session_date: '2026-11-02',
+      start_time: null,
+      duration_minutes: null,
+      notes: '',
+      exercises: [
+        { name: 'Rondo 4x2', minutes: 15, notes: '' },
+        { name: 'Partido', minutes: null, notes: 'Final' },
+      ],
+    })
+  })
+  it('valida duración y nombre de ejercicio', () => {
+    expect(parseForm(trainingSchema, { ...base, duration_minutes: '5', exercises: [] }).ok).toBe(false)
+    const r = parseForm(trainingSchema, { ...base, exercises: [{ name: '', minutes: '', notes: '' }] })
+    expect(!r.ok && r.errors['exercises.0.name']).toBeTruthy()
+  })
+  it('parseExercises tolera datos guardados y basura', () => {
+    expect(parseExercises([{ name: 'Rondo', minutes: null, notes: '' }])).toEqual([{ name: 'Rondo', minutes: null, notes: '' }])
+    expect(parseExercises({ no: 'array' })).toEqual([])
+    expect(parseExercises(null)).toEqual([])
+  })
+})
+
 describe('format', () => {
+  it('horas y duraciones', () => {
+    expect(endTime('17:00', 90)).toBe('18:30')
+    expect(endTime('17:00:00', null)).toBe('')
+    expect(minutesBetween('18:30:00', '20:00:00')).toBe(90)
+    expect(minutesBetween('20:00', '18:30')).toBeNull()
+  })
+  it('días relativos y diferencias', () => {
+    expect(relativeDayLabel('2026-10-31', '2026-10-31')).toBe('Hoy')
+    expect(relativeDayLabel('2026-11-01', '2026-10-31')).toBe('Mañana')
+    expect(daysBetween('2026-10-17', '2026-10-31')).toBe(14)
+  })
   it('día ISO de la semana', () => {
     expect(isoWeekday('2026-10-26')).toBe(1) // lunes
     expect(isoWeekday('2026-11-01')).toBe(7) // domingo
