@@ -4,10 +4,15 @@ Aplicación web privada para el equipo técnico de la Escuela Deportiva JUDEVAL 
 Basada en la guía «Acompañar, unir y hacer equipo»:
 
 - **Deporte activo**: tras iniciar sesión se elige deporte y toda la app muestra solo sus datos. Se cambia desde la pastilla del menú, «Más» o «Mi perfil».
-- **Inicio**: entrenamientos programados (próximos 14 días), seguimientos pendientes (con ➕ para crear uno) y jugadores «sin noticias individuales» en X días (X lo configura cada entrenador).
+- **Concordancia de género**: fútbol sala en masculino (jugadores, lesionado, convocados…) y voley en femenino (jugadoras, lesionada, convocadas…).
+  Todas las palabras con género salen de `src/i18n/gender.ts`; un test impide escribirlas a mano en las pantallas. En voley no se muestra el campo «Posición».
+- **Inicio**: recordatorio de la **encuesta de asistencia por WhatsApp** (martes y domingo desde las 08:00, hora de Madrid; una fila por categoría,
+  se marca como enviada para todo el equipo técnico y se rearma cada turno), entrenamientos programados y próximos partidos (14 días),
+  seguimientos pendientes (con ➕) y jugadores «sin noticias individuales» en X días (X lo configura cada entrenador).
 - **Jugadores**: ficha por categoría con disponibilidad, consideraciones físicas, asistencia, revisiones en las que se le menciona y cronología de notas
   (observaciones, conversaciones individuales, reconocimientos e incidencias) con seguimientos pendientes.
 - **Entrenamientos**: planificación de cada sesión (fecha, hora, duración, categoría, notas y ejercicios opcionales). Sobre esa misma sesión se pasa lista.
+- **Partidos**: calendario (rival, lugar, local/visitante, competición), convocatoria, asistencia de los convocados y resultado. Cuentan en el historial y en la ficha.
 - **Asistencia**: pasar lista desde el móvil (presente, ausente, justificado o lesionado), pregunta de cierre e historial con porcentajes.
 - **Revisiones**: texto libre con lo que se ha visto o se quiere resaltar, con jugadores etiquetados opcionalmente.
 - **Compromisos**: «Nuestro estilo Judeval», con estado (Objetivo Cumplido, Pendiente o No Conseguido) y filtros.
@@ -224,11 +229,15 @@ Cada `git push` a `main` vuelve a desplegar la web automáticamente.
 
 ## 6. Publicar una actualización que cambia la base de datos
 
-Cuando una versión incluye una migración nueva en `supabase/migrations/` (por ejemplo, `20261031120000_sports_trainings.sql`,
-que añade deportes, entrenamientos planificados, revisiones libres y estados de compromisos), **el orden importa**:
-la web nueva necesita la base de datos ya migrada.
+Cuando una versión incluye una migración nueva en `supabase/migrations/`, **el orden importa**: la web nueva necesita la base de datos ya migrada.
+`npx supabase db push` aplica solo las migraciones que falten.
 
-1. **Copia de seguridad** (la migración de revisiones convierte las 6 respuestas antiguas en un único texto y elimina esas columnas):
+| Migración | Qué añade | Riesgo |
+| --- | --- | --- |
+| `20261031120000_sports_trainings.sql` | Deportes, entrenamientos planificados, revisiones libres, estados de compromisos | Elimina las 6 columnas antiguas de revisiones (sus textos se conservan en `body`) |
+| `20261101120000_matches_polls.sql` | Partidos (convocatoria, asistencia, resultado) y estado de la encuesta de WhatsApp | Solo añade tablas y funciones |
+
+1. **Copia de seguridad**:
 
    ```bash
    npx supabase db dump --linked --data-only -f backups/antes-de-migrar-AAAA-MM-DD.sql
@@ -241,7 +250,7 @@ la web nueva necesita la base de datos ya migrada.
    ```
 
    (Sin CLI: pega el contenido del archivo de la migración en **SQL Editor** y ejecútalo una vez.)
-3. **Comprobar** en Supabase → Table Editor → `categories` que existen «Cadetes» y «Juveniles» de voley.
+3. **Comprobar** en Supabase → Table Editor que existen las tablas `matches`, `match_players` y `poll_reminders`.
 4. **Publicar la web**: `git add .`, `git commit -m "…"` y `git push`. Vercel la despliega solo en 1–2 minutos.
 
 La Edge Function `admin-users` no cambia con esta migración y no hace falta volver a desplegarla.

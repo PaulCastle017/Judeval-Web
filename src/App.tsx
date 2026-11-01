@@ -8,6 +8,8 @@ import { PlayersPage } from './features/players/PlayersPage'
 import { PlayerDetailPage } from './features/players/PlayerDetailPage'
 import { TrainingsPage } from './features/trainings/TrainingsPage'
 import { TrainingEditPage } from './features/trainings/TrainingForm'
+import { MatchesPage } from './features/matches/MatchesPage'
+import { MatchDetailPage } from './features/matches/MatchDetailPage'
 import { AttendancePage } from './features/attendance/AttendancePage'
 import { AttendanceHistoryPage } from './features/attendance/AttendanceHistoryPage'
 import { ReviewsPage } from './features/reviews/ReviewsPage'
@@ -44,6 +46,8 @@ export function App() {
           <Route path="jugadores/:id" element={<PlayerDetailPage />} />
           <Route path="entrenamientos" element={<TrainingsPage />} />
           <Route path="entrenamientos/:id" element={<TrainingEditPage />} />
+          <Route path="partidos" element={<MatchesPage />} />
+          <Route path="partidos/:id" element={<MatchDetailPage />} />
           <Route path="asistencia" element={<AttendancePage />} />
           <Route path="asistencia/historial" element={<AttendanceHistoryPage />} />
           <Route path="revisiones" element={<ReviewsPage />} />

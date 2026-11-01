@@ -37,7 +37,7 @@ export function AdminPage() {
       <PageHeader title="Administración" />
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'users'} className={tab === 'users' ? 'on' : ''} onClick={() => setTab('users')}>
-          Entrenadores
+          Equipo técnico
         </button>
         <button
           role="tab"
@@ -67,11 +67,11 @@ function UsersAdmin() {
       <div className="row space-between">
         <p className="muted small">
           El registro público está desactivado: solo un administrador puede crear cuentas. Comunica la contraseña temporal
-          en persona o por un canal privado; el entrenador debe cambiarla en «Mi perfil».
+          en persona o por un canal privado; quien la reciba debe cambiarla en «Mi perfil».
         </p>
         {!creating && (
           <button className="btn btn-primary" onClick={() => setCreating(true)}>
-            + Nuevo entrenador
+            + Nueva cuenta
           </button>
         )}
       </div>
@@ -116,7 +116,7 @@ function NewUserForm({ onDone }: { onDone: (message: string | null) => void }) {
 
   return (
     <form className="card stack" onSubmit={onSubmit} noValidate>
-      <h2>Nuevo entrenador</h2>
+      <h2>Nueva cuenta del equipo técnico</h2>
       {create.isError && <ErrorMessage message={toMessage(create.error)} />}
       <div className="grid-2">
         <Field label="Nombre completo" error={errors.full_name}>
@@ -363,7 +363,7 @@ function CategoryForm({ category, onDone }: { category?: Tables<'categories'>; o
       {save.isError && <ErrorMessage message={toMessage(save.error)} />}
       {remove.isError && <ErrorMessage message={toMessage(remove.error)} />}
       <div className="grid-3">
-        <Field label="Deporte" error={errors.sport} hint={category ? 'Cambiarlo mueve sus jugadores y entrenamientos al otro deporte' : undefined}>
+        <Field label="Deporte" error={errors.sport} hint={category ? 'Cambiarlo mueve sus fichas, entrenamientos y partidos al otro deporte' : undefined}>
           <select value={form.sport} onChange={(e) => setForm({ ...form, sport: e.target.value as Enums<'sport_type'> })}>
             {SPORTS.map((s) => (
               <option key={s} value={s}>

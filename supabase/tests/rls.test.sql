@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(51);
+select plan(72);
 
 -- Usuarios de prueba ---------------------------------------------------------------
 insert into auth.users (id, email, aud, role) values
@@ -164,6 +164,54 @@ select throws_ok($$insert into public.training_sessions (category_id, session_da
 select lives_ok($$insert into public.training_sessions (category_id, session_date, start_time, duration_minutes, exercises)
   values ('00000000-0000-0000-0000-00000000ca71', '2030-01-02', '17:00', 90, '[{"name": "Rondo", "minutes": 15, "notes": ""}]')$$,
   'coach: crea un entrenamiento planificado con ejercicios');
+reset role;
+
+-- PARTIDOS Y ENCUESTA DE WHATSAPP -------------------------------------------------
+insert into matches (id, category_id, match_date, opponent) values
+  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-00000000ca71', '2030-02-01', 'Rival');
+
+set local role anon;
+select throws_ok('select * from public.matches', '42501', null, 'anon no puede leer partidos');
+select throws_ok('select * from public.poll_reminders', '42501', null, 'anon no puede leer encuestas');
+select throws_ok($$select public.set_match_squad('00000000-0000-0000-0000-0000000000e1', '{}')$$, '42501', null, 'anon no puede convocar');
+select throws_ok('select * from public.player_match_stats()', '42501', null, 'anon no puede ver estadísticas de partidos');
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000d1","role":"authenticated"}', true);
+set local role authenticated;
+select is((select count(*)::int from matches), 0, 'inactivo: no ve partidos');
+select throws_ok($$insert into public.poll_reminders (category_id, slot_date) values ('00000000-0000-0000-0000-00000000ca71', '2026-11-03')$$,
+  '42501', null, 'inactivo: no puede marcar encuestas');
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
+set local role authenticated;
+select lives_ok($$select public.set_match_squad('00000000-0000-0000-0000-0000000000e1', array['00000000-0000-0000-0000-0000000000f1']::uuid[])$$,
+  'coach: hace la convocatoria');
+select is((select count(*)::int from match_players where match_id = '00000000-0000-0000-0000-0000000000e1'), 1, 'coach: queda una persona convocada');
+select lives_ok($$update public.match_players set status = 'presente'
+  where match_id = '00000000-0000-0000-0000-0000000000e1' and player_id = '00000000-0000-0000-0000-0000000000f1'$$, 'coach: pasa lista en el partido');
+select lives_ok($$select public.set_match_squad('00000000-0000-0000-0000-0000000000e1', array['00000000-0000-0000-0000-0000000000f1']::uuid[])$$,
+  'coach: vuelve a guardar la convocatoria');
+select is((select status::text from match_players where match_id = '00000000-0000-0000-0000-0000000000e1'), 'presente',
+  'set_match_squad conserva la asistencia de quien sigue convocado');
+select is((select presente from public.player_match_stats('00000000-0000-0000-0000-00000000ca71') where player_id = '00000000-0000-0000-0000-0000000000f1'),
+  1, 'estadísticas de partidos');
+select throws_ok($$update public.matches set goals_for = 3 where id = '00000000-0000-0000-0000-0000000000e1'$$,
+  '23514', null, 'el resultado no puede quedar a medias');
+select lives_ok($$update public.matches set goals_for = 3, goals_against = 1 where id = '00000000-0000-0000-0000-0000000000e1'$$,
+  'coach: guarda el resultado');
+select throws_ok($$select public.set_match_squad('00000000-0000-0000-0000-00000000dead', '{}')$$, 'P0002', null, 'convocatoria de un partido inexistente');
+select lives_ok($$insert into public.poll_reminders (category_id, slot_date) values ('00000000-0000-0000-0000-00000000ca71', '2026-11-03')$$,
+  'coach: marca la encuesta del martes como enviada');
+select throws_ok($$insert into public.poll_reminders (category_id, slot_date) values ('00000000-0000-0000-0000-00000000ca71', '2026-11-03')$$,
+  '23505', null, 'la misma encuesta no se marca dos veces');
+select throws_ok($$insert into public.poll_reminders (category_id, slot_date) values ('00000000-0000-0000-0000-00000000ca71', '2026-11-04')$$,
+  '23514', null, 'solo hay turnos de encuesta en martes y domingo');
+select is((select created_by from poll_reminders where slot_date = '2026-11-03'), '00000000-0000-0000-0000-0000000000c1'::uuid,
+  'la encuesta queda firmada por quien la marcó');
+select lives_ok($$select public.set_match_squad('00000000-0000-0000-0000-0000000000e1', '{}')$$, 'coach: vacía la convocatoria');
+select is((select count(*)::int from match_players where match_id = '00000000-0000-0000-0000-0000000000e1'), 0, 'la convocatoria queda vacía');
 reset role;
 
 select * from finish();

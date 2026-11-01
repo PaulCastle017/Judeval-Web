@@ -4,21 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { unwrap, unwrapMaybe, useCategories } from '../../lib/queries'
-import {
-  ATTENDANCE_LABELS,
-  formatDate,
-  playerName,
-  POSITION_LABELS,
-  seasonStart,
-  SPORT_EMOJI,
-  SPORT_LABELS,
-  STATUS_LABELS,
-  todayISO,
-} from '../../lib/format'
+import { formatDate, playerName, seasonStart, SPORT_EMOJI, SPORT_LABELS, todayISO } from '../../lib/format'
+import { labelsForSport, useWords, wordsForSport } from '../../i18n/useWords'
 import { useAuth } from '../../auth/AuthProvider'
 import { Badge, ConfirmButton, EmptyState, ErrorMessage, Spinner } from '../../components/ui'
 import { PlayerForm } from './PlayerForm'
 import { NoteForm, NoteList } from './Notes'
+import { MatchResultBadge } from '../matches/MatchResultBadge'
 import { useSport } from '../../sport/SportProvider'
 
 const ATTENDANCE_TONE = { presente: 'success', ausente: 'danger', justificado: 'info', lesionado: 'warn' } as const
@@ -29,6 +21,7 @@ export function PlayerDetailPage() {
   const queryClient = useQueryClient()
   const { isAdmin } = useAuth()
   const sport = useSport()
+  const activeWords = useWords()
   const categories = useCategories()
   const [editing, setEditing] = useState(false)
   const [addingNote, setAddingNote] = useState(false)
@@ -62,6 +55,18 @@ export function PlayerDetailPage() {
       ).sort((a, b) => b.session.session_date.localeCompare(a.session.session_date)),
   })
 
+  const matches = useQuery({
+    queryKey: ['matches', 'player', id, from],
+    queryFn: async () =>
+      unwrap(
+        await supabase
+          .from('match_players')
+          .select('status, match:matches!inner(id, match_date, opponent, goals_for, goals_against)')
+          .eq('player_id', id)
+          .gte('match.match_date', from),
+      ).sort((a, b) => b.match.match_date.localeCompare(a.match.match_date)),
+  })
+
   const mentions = useQuery({
     queryKey: ['reviews', 'player', id],
     queryFn: async () =>
@@ -80,7 +85,7 @@ export function PlayerDetailPage() {
 
   if (player.isPending) return <Spinner />
   if (player.isError) return <ErrorMessage error={player.error} onRetry={player.refetch} />
-  if (!player.data) return <ErrorMessage message="Jugador no encontrado." />
+  if (!player.data) return <ErrorMessage message="No se ha encontrado la ficha." />
   const p = player.data
 
   if (editing) {
@@ -88,6 +93,10 @@ export function PlayerDetailPage() {
   }
 
   const category = categories.data?.find((c) => c.id === p.category_id)
+  // La ficha concuerda con el deporte del propio jugador (puede abrirse por enlace desde el otro deporte)
+  const playerSport = category?.sport ?? sport
+  const w = wordsForSport(playerSport)
+  const labels = labelsForSport(playerSport)
   const records = attendance.data ?? []
   const counted = records.filter((r) => r.status !== 'lesionado')
   const rate = counted.length ? Math.round((100 * counted.filter((r) => r.status === 'presente').length) / counted.length) : null
@@ -95,18 +104,24 @@ export function PlayerDetailPage() {
   return (
     <div className="stack">
       <Link to="/jugadores" className="back-link">
-        ← Jugadores
+        ← {activeWords.Players}
       </Link>
       <header className="page-header">
         <div>
           <h1>{playerName(p)}</h1>
           <div className="row-tight">
             {category && <Badge>{category.name}</Badge>}
-            <Badge tone={p.position === 'portero' ? 'info' : 'neutral'}>{POSITION_LABELS[p.position]}</Badge>
+            {(playerSport === 'futsal' || p.position === 'portero') && (
+              <Badge tone={p.position === 'portero' ? 'info' : 'neutral'}>{labels.position[p.position]}</Badge>
+            )}
             <Badge tone={p.status === 'activo' ? 'success' : p.status === 'lesionado' ? 'warn' : 'neutral'}>
-              {STATUS_LABELS[p.status]}
+              {labels.status[p.status]}
             </Badge>
-            {p.birth_year && <span className="muted small">Nacido en {p.birth_year}</span>}
+            {p.birth_year && (
+              <span className="muted small">
+                {w.Born} en {p.birth_year}
+              </span>
+            )}
           </div>
         </div>
         <div className="row">
@@ -114,7 +129,7 @@ export function PlayerDetailPage() {
             Editar
           </button>
           {isAdmin && (
-            <ConfirmButton onConfirm={() => remove.mutate()} confirmText="Borrar jugador y su historial" disabled={remove.isPending}>
+            <ConfirmButton onConfirm={() => remove.mutate()} confirmText={`Borrar ${w.player} y su historial`} disabled={remove.isPending}>
               Borrar
             </ConfirmButton>
           )}
@@ -123,7 +138,7 @@ export function PlayerDetailPage() {
       {remove.isError && <ErrorMessage message={toMessage(remove.error)} />}
       {category && category.sport !== sport && (
         <div className="alert alert-info" role="status">
-          Este jugador es de {SPORT_EMOJI[category.sport]} {SPORT_LABELS[category.sport]}. Estás trabajando en{' '}
+          {w.This} {w.player} es de {SPORT_EMOJI[category.sport]} {SPORT_LABELS[category.sport]}. Estás trabajando en{' '}
           {SPORT_LABELS[sport]}.
         </div>
       )}
@@ -150,9 +165,9 @@ export function PlayerDetailPage() {
         {records.length > 0 && (
           <ul className="attendance-dots">
             {records.slice(0, 20).map((r, i) => (
-              <li key={i} title={`${formatDate(r.session.session_date)} · ${ATTENDANCE_LABELS[r.status]}${r.comment ? ` · ${r.comment}` : ''}`}>
+              <li key={i} title={`${formatDate(r.session.session_date)} · ${labels.attendance[r.status]}${r.comment ? ` · ${r.comment}` : ''}`}>
                 <Badge tone={ATTENDANCE_TONE[r.status]}>
-                  {formatDate(r.session.session_date).replace(/ \d{4}$/, '')} · {ATTENDANCE_LABELS[r.status]}
+                  {formatDate(r.session.session_date).replace(/ \d{4}$/, '')} · {labels.attendance[r.status]}
                 </Badge>
               </li>
             ))}
@@ -160,10 +175,40 @@ export function PlayerDetailPage() {
         )}
       </section>
 
+      <section className="card">
+        <h2>🏆 Partidos esta temporada</h2>
+        {matches.isPending && <Spinner />}
+        {matches.isError && <ErrorMessage error={matches.error} onRetry={matches.refetch} />}
+        {matches.isSuccess && matches.data.length === 0 && <EmptyState>Sin convocatorias todavía.</EmptyState>}
+        {matches.isSuccess && matches.data.length > 0 && (
+          <>
+            <p>
+              <strong>{matches.data.length}</strong> {matches.data.length === 1 ? 'convocatoria' : 'convocatorias'} ·{' '}
+              <strong>{matches.data.filter((r) => r.status === 'presente').length}</strong> con asistencia
+            </p>
+            <ul className="list">
+              {matches.data.slice(0, 5).map(({ match, status }) => (
+                <li key={match.id}>
+                  <Link to={`/partidos/${match.id}`} className="list-link">
+                    <span className="list-main">
+                      <strong>
+                        {formatDate(match.match_date)} · vs {match.opponent}
+                      </strong>
+                      {status && <span className="muted small">{labels.attendance[status]}</span>}
+                    </span>
+                    <MatchResultBadge goalsFor={match.goals_for} goalsAgainst={match.goals_against} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
       {mentions.isError && <ErrorMessage error={mentions.error} onRetry={mentions.refetch} />}
       {mentions.data && mentions.data.length > 0 && (
         <section className="card">
-          <h2>📝 Mencionado en revisiones</h2>
+          <h2>📝 {w.Mentioned} en revisiones</h2>
           <ul className="list">
             {mentions.data.map(({ review }) => (
               <li key={review.id}>

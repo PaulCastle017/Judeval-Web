@@ -18,6 +18,25 @@ export const COMMITMENT_STATUS_LABELS: Record<Enums<'commitment_status'>, string
   no_conseguido: 'Objetivo No Conseguido',
 }
 
+export const VENUE_LABELS: Record<Enums<'match_venue'>, string> = {
+  local: '🏠 Local',
+  visitante: '✈️ Visitante',
+}
+
+export type MatchOutcome = 'victoria' | 'empate' | 'derrota'
+
+export const OUTCOME_LABELS: Record<MatchOutcome, string> = {
+  victoria: 'Victoria',
+  empate: 'Empate',
+  derrota: 'Derrota',
+}
+
+/** Resultado desde el punto de vista de JUDEVAL; null si aún no hay marcador. */
+export function matchOutcome(goalsFor: number | null, goalsAgainst: number | null): MatchOutcome | null {
+  if (goalsFor === null || goalsAgainst === null) return null
+  return goalsFor > goalsAgainst ? 'victoria' : goalsFor < goalsAgainst ? 'derrota' : 'empate'
+}
+
 export const NOTE_TYPE_LABELS: Record<Enums<'note_type'>, string> = {
   observacion: 'Observación',
   conversacion: 'Conversación',
@@ -36,27 +55,12 @@ export const NOTE_TOPIC_LABELS: Record<Enums<'note_topic'>, string> = {
   otro: 'Otro',
 }
 
-export const STATUS_LABELS: Record<Enums<'player_status'>, string> = {
-  activo: 'Activo',
-  lesionado: 'Lesionado',
-  baja: 'Baja',
-}
+// Estado, asistencia y posición dependen del género del deporte: ver src/i18n (useLabels).
 
-export const POSITION_LABELS: Record<Enums<'player_position'>, string> = {
-  jugador: 'Jugador',
-  portero: 'Portero',
-}
-
-export const ATTENDANCE_LABELS: Record<Enums<'attendance_status'>, string> = {
-  presente: 'Presente',
-  ausente: 'Ausente',
-  justificado: 'Justificado',
-  lesionado: 'Lesionado',
-}
-
+// Redacción neutra: el rol es de la persona, no del deporte.
 export const ROLE_LABELS: Record<Enums<'staff_role'>, string> = {
-  admin: 'Administrador',
-  coach: 'Entrenador',
+  admin: 'Administración',
+  coach: 'Equipo técnico',
 }
 
 export const WEEKDAYS = [

@@ -25,7 +25,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
         <div className="card narrow">
           <h1>Cuenta pendiente de activación</h1>
           <p>
-            Tu cuenta ({session.user.email}) existe pero todavía no está activa. Pide al coordinador de JUDEVAL que la
+            Tu cuenta ({session.user.email}) existe pero todavía no está activa. Pide a la coordinación de JUDEVAL que la
             active desde el panel de administración.
           </p>
           <div className="row">

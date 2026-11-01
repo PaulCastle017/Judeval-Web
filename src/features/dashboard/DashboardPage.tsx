@@ -20,9 +20,12 @@ import {
 import { parseExercises } from '../../lib/validation'
 import { useAuth } from '../../auth/AuthProvider'
 import { useSport } from '../../sport/SportProvider'
+import { useWords } from '../../i18n/useWords'
 import { readNumberPref, writeNumberPref, type Sport } from '../../sport/storage'
 import { EmptyState, ErrorMessage, Spinner } from '../../components/ui'
 import { NoteForm } from '../players/Notes'
+import { PollReminder } from './PollReminder'
+import { UpcomingMatches } from './UpcomingMatches'
 
 const UPCOMING_DAYS = 14
 const NO_NEWS_DEFAULT = 14
@@ -43,7 +46,9 @@ export function DashboardPage() {
         </p>
       </header>
 
+      <PollReminder sport={sport} />
       <UpcomingTrainings sport={sport} today={today} />
+      <UpcomingMatches sport={sport} today={today} />
       <PendingFollowUps sport={sport} />
       <NoRecentNews sport={sport} today={today} userId={profile?.id ?? 'anon'} />
     </div>
@@ -136,6 +141,7 @@ function UpcomingTrainings({ sport, today }: { sport: Sport; today: string }) {
 
 function PendingFollowUps({ sport }: { sport: Sport }) {
   const queryClient = useQueryClient()
+  const w = useWords()
   const staff = useStaff()
   const players = usePlayers(sport)
   const [adding, setAdding] = useState(false)
@@ -189,7 +195,7 @@ function PendingFollowUps({ sport }: { sport: Sport }) {
             <li key={n.id} className="followup-row">
               <div>
                 <Link to={`/jugadores/${n.player_id}`}>
-                  <strong>{player ? playerName(player) : 'Jugador'}</strong>
+                  <strong>{player ? playerName(player) : w.Player}</strong>
                 </Link>{' '}
                 <span className="muted small">
                   {formatDate(n.note_date)} · {staffName(staff.data, n.author_id)}
@@ -208,6 +214,7 @@ function PendingFollowUps({ sport }: { sport: Sport }) {
 }
 
 function NoRecentNews({ sport, today, userId }: { sport: Sport; today: string; userId: string }) {
+  const w = useWords()
   const prefKey = `judeval.noNewsDays.${userId}`
   const [days, setDays] = useState(() => readNumberPref(prefKey, NO_NEWS_DEFAULT, NO_NEWS_MIN, NO_NEWS_MAX))
   const [draft, setDraft] = useState(String(days))
@@ -253,11 +260,15 @@ function NoRecentNews({ sport, today, userId }: { sport: Sport; today: string; u
         </label>
       </div>
       <p className="muted small">
-        Jugadores sin ninguna nota nueva ni actualizada en su seguimiento. La guía propone dos conversaciones de 5–10 minutos por semana.
+        {w.Players} sin ninguna nota nueva ni actualizada en su seguimiento. La guía propone dos conversaciones de 5–10 minutos por semana.
       </p>
       {(news.isPending || players.isPending) && <Spinner />}
       {news.isError && <ErrorMessage error={news.error} onRetry={news.refetch} />}
-      {news.isSuccess && players.isSuccess && stale.length === 0 && <EmptyState>Todos los jugadores tienen noticias recientes. 👏</EmptyState>}
+      {news.isSuccess && players.isSuccess && stale.length === 0 && (
+        <EmptyState>
+          {w.All} {w.thePl} {w.players} tienen noticias recientes. 👏
+        </EmptyState>
+      )}
       {stale.length > 0 && (
         <ul className="chips">
           {stale.map((r) => {

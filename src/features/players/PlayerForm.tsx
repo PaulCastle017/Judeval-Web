@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { unwrap, useCategories } from '../../lib/queries'
-import { POSITION_LABELS, STATUS_LABELS } from '../../lib/format'
+import { labelsForSport, wordsForSport } from '../../i18n/useWords'
 import { parseForm, playerSchema, type FieldErrors } from '../../lib/validation'
 import { ErrorMessage, Field } from '../../components/ui'
 import { useSport } from '../../sport/SportProvider'
@@ -23,6 +23,12 @@ export function PlayerForm({ player, defaultCategoryId, onSaved, onCancel }: Pro
   // Alta: categorías del deporte activo. Edición: las del deporte del propio jugador.
   const formSport = (player && allCategories.data?.find((c) => c.id === player.category_id)?.sport) || activeSport
   const categoryOptions = allCategories.data?.filter((c) => c.sport === formSport)
+  // Textos en el género del deporte del jugador (voley → femenino)
+  const w = wordsForSport(formSport)
+  const labels = labelsForSport(formSport)
+  // En voley no hay porteras: el campo «Posición» solo tiene sentido en fútbol sala
+  // (si un registro antiguo ya tiene «portero», se muestra para poder corregirlo)
+  const showPosition = formSport === 'futsal' || player?.position === 'portero'
   const [form, setForm] = useState({
     category_id: player?.category_id ?? defaultCategoryId ?? '',
     first_name: player?.first_name ?? '',
@@ -63,7 +69,9 @@ export function PlayerForm({ player, defaultCategoryId, onSaved, onCancel }: Pro
 
   return (
     <form className="card stack" onSubmit={onSubmit} noValidate>
-      <h2>{player ? 'Editar jugador' : 'Nuevo jugador'}</h2>
+      <h2>
+        {player ? 'Editar' : w.New} {w.player}
+      </h2>
       {save.isError && <ErrorMessage message={toMessage(save.error)} />}
       <div className="grid-2">
         <Field label="Nombre *" error={errors.first_name}>
@@ -72,7 +80,7 @@ export function PlayerForm({ player, defaultCategoryId, onSaved, onCancel }: Pro
         <Field label="Apellidos" error={errors.last_name}>
           <input value={form.last_name} onChange={(e) => set('last_name', e.target.value)} maxLength={80} />
         </Field>
-        <Field label="Nombre visible / alias" error={errors.display_name} hint="Para distinguir, p. ej. «David (Portero)»">
+        <Field label="Nombre visible / alias" error={errors.display_name} hint="Para distinguir nombres repetidos, p. ej. añadiendo la categoría o la posición">
           <input value={form.display_name} onChange={(e) => set('display_name', e.target.value)} maxLength={80} />
         </Field>
         <Field label="Categoría *" error={errors.category_id}>
@@ -85,18 +93,20 @@ export function PlayerForm({ player, defaultCategoryId, onSaved, onCancel }: Pro
             ))}
           </select>
         </Field>
-        <Field label="Posición" error={errors.position}>
-          <select value={form.position} onChange={(e) => set('position', e.target.value as typeof form.position)}>
-            {Object.entries(POSITION_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </Field>
+        {showPosition && (
+          <Field label="Posición" error={errors.position}>
+            <select value={form.position} onChange={(e) => set('position', e.target.value as typeof form.position)}>
+              {Object.entries(labels.position).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         <Field label="Estado" error={errors.status}>
           <select value={form.status} onChange={(e) => set('status', e.target.value as typeof form.status)}>
-            {Object.entries(STATUS_LABELS).map(([v, l]) => (
+            {Object.entries(labels.status).map(([v, l]) => (
               <option key={v} value={v}>
                 {l}
               </option>

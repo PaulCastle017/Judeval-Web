@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useCategories, usePlayers } from '../../lib/queries'
-import { playerName, POSITION_LABELS, SPORT_EMOJI, STATUS_LABELS } from '../../lib/format'
+import { playerName, SPORT_EMOJI } from '../../lib/format'
+import { useLabels, useWords } from '../../i18n/useWords'
 import { Badge, EmptyState, ErrorMessage, PageHeader, Spinner } from '../../components/ui'
 import { PlayerForm } from './PlayerForm'
 import { useSport } from '../../sport/SportProvider'
 
-const STATUS_FILTERS = [
-  { value: 'vigentes', label: 'Activos y lesionados' },
-  { value: 'activo', label: 'Solo activos' },
-  { value: 'lesionado', label: 'Lesionados' },
+const statusFilters = (w: ReturnType<typeof useWords>) => [
+  { value: 'vigentes', label: `${w.ActivePl} y ${w.injuredPl}` },
+  { value: 'activo', label: `Solo ${w.activePl}` },
+  { value: 'lesionado', label: w.InjuredPl },
   { value: 'baja', label: 'Bajas' },
-  { value: 'todos', label: 'Todos' },
+  { value: 'todos', label: w.All },
 ]
 
 const normalize = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
@@ -20,6 +21,8 @@ export function PlayersPage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const sport = useSport()
+  const w = useWords()
+  const labels = useLabels()
   const statusFilter = params.get('estado') ?? 'vigentes'
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
@@ -64,10 +67,10 @@ export function PlayersPage() {
   return (
     <div className="stack">
       <PageHeader
-        title={`${SPORT_EMOJI[sport]} Jugadores`}
+        title={`${SPORT_EMOJI[sport]} ${w.Players}`}
         actions={
           <button className="btn btn-primary" onClick={() => setCreating(true)}>
-            + Nuevo jugador
+            + {w.New} {w.player}
           </button>
         }
       />
@@ -83,7 +86,7 @@ export function PlayersPage() {
           ))}
         </select>
         <select value={statusFilter} onChange={(e) => setParam('estado', e.target.value)} aria-label="Estado">
-          {STATUS_FILTERS.map((s) => (
+          {statusFilters(w).map((s) => (
             <option key={s.value} value={s.value}>
               {s.label}
             </option>
@@ -96,7 +99,7 @@ export function PlayersPage() {
       {categories.isError && <ErrorMessage error={categories.error} onRetry={categories.refetch} />}
 
       {players.isSuccess && categories.isSuccess && grouped.length === 0 && (
-        <EmptyState>No hay jugadores que coincidan con los filtros.</EmptyState>
+        <EmptyState>No hay {w.players} que coincidan con los filtros.</EmptyState>
       )}
 
       {grouped.map(({ category, players: list }) => (
@@ -113,8 +116,8 @@ export function PlayersPage() {
                     {p.availability_notes && <span className="muted small">{p.availability_notes}</span>}
                   </span>
                   <span className="row-tight">
-                    {p.position === 'portero' && <Badge tone="info">{POSITION_LABELS.portero}</Badge>}
-                    {p.status !== 'activo' && <Badge tone={p.status === 'lesionado' ? 'warn' : 'neutral'}>{STATUS_LABELS[p.status]}</Badge>}
+                    {p.position === 'portero' && <Badge tone="info">{labels.position.portero}</Badge>}
+                    {p.status !== 'activo' && <Badge tone={p.status === 'lesionado' ? 'warn' : 'neutral'}>{labels.status[p.status]}</Badge>}
                   </span>
                 </Link>
               </li>

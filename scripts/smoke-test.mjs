@@ -33,7 +33,7 @@ const stamp = Date.now()
 const ADMIN_EMAIL = `smoke-admin-${stamp}@test.local`
 const COACH_EMAIL = `smoke-coach-${stamp}@test.local`
 const PASS = 'Prueba1234'
-const created = { users: [], playerId: null, reviewId: null, commitmentId: null }
+const created = { users: [], playerId: null, reviewId: null, commitmentId: null, matchId: null }
 
 async function callAdminFn(client, body) {
   const { data, error } = await client.functions.invoke('admin-users', { body })
@@ -181,6 +181,36 @@ try {
   const myNews = news?.find((n) => n.player_id === player.id)
   check(!newsErr && myNews?.last_news_date, 'noticias: el jugador con nota reciente tiene fecha', newsErr ?? myNews)
 
+  const { data: match, error: mErr } = await coach
+    .from('matches')
+    .insert({ category_id: cats[0].id, match_date: '2000-01-08', opponent: 'CD Smoke', venue: 'visitante', competition: 'Liga · J1' })
+    .select()
+    .single()
+  check(!mErr && match?.id, 'crea un partido', mErr)
+  created.matchId = match?.id
+  const { error: sqErr } = await coach.rpc('set_match_squad', { p_match_id: match.id, p_player_ids: [player.id] })
+  check(!sqErr, 'hace la convocatoria (RPC set_match_squad)', sqErr)
+  const { error: mpErr } = await coach
+    .from('match_players')
+    .upsert([{ match_id: match.id, player_id: player.id, status: 'presente' }], { onConflict: 'match_id,player_id' })
+  check(!mpErr, 'pasa lista en el partido', mpErr)
+  const { error: halfErr } = await coach.from('matches').update({ goals_for: 2 }).eq('id', match.id)
+  check(!!halfErr, 'rechaza un resultado a medias')
+  const { error: resErr } = await coach.from('matches').update({ goals_for: 2, goals_against: 2 }).eq('id', match.id)
+  check(!resErr, 'guarda el resultado', resErr)
+  const { data: mStats, error: msErr } = await coach.rpc('player_match_stats', { p_from: '2000-01-01', p_to: '2000-01-31' })
+  const myMatch = mStats?.find((r) => r.player_id === player.id)
+  check(!msErr && myMatch?.called_up === 1 && myMatch?.presente === 1, 'estadísticas de partidos', msErr ?? mStats)
+
+  const { error: pollErr } = await coach.from('poll_reminders').insert({ category_id: cats[0].id, slot_date: '2000-01-02' })
+  check(!pollErr, 'marca la encuesta de WhatsApp como enviada', pollErr)
+  const { error: pollDupErr } = await admin.from('poll_reminders').insert({ category_id: cats[0].id, slot_date: '2000-01-02' })
+  check(pollDupErr?.code === '23505', 'otra persona no puede duplicarla (23505, la app lo trata como ya enviada)', pollDupErr)
+  const { data: pollSeen } = await admin.from('poll_reminders').select('created_by').eq('slot_date', '2000-01-02')
+  check(pollSeen?.[0]?.created_by === coachId, 'el resto del equipo ve quién la envió')
+  const { data: undone, error: undoErr } = await coach.from('poll_reminders').delete().eq('slot_date', '2000-01-02').select()
+  check(!undoErr && undone?.length === 1, 'deshace la marca de encuesta', undoErr)
+
   console.log('4. Permisos negativos')
   const { error: roleErr } = await coach.from('profiles').update({ role: 'admin' }).eq('id', coachId)
   check(!!roleErr, 'el entrenador NO puede cambiarse el rol')
@@ -211,6 +241,8 @@ try {
   console.log('6. Limpieza')
   if (created.reviewId) await service.from('staff_reviews').delete().eq('id', created.reviewId)
   if (created.commitmentId) await service.from('team_commitments').delete().eq('id', created.commitmentId)
+  if (created.matchId) await service.from('matches').delete().eq('id', created.matchId)
+  await service.from('poll_reminders').delete().eq('slot_date', '2000-01-02')
   await service.from('training_sessions').delete().eq('session_date', '2030-01-07')
   if (created.playerId) await service.from('players').delete().eq('id', created.playerId)
   await service.from('training_sessions').delete().eq('session_date', '2000-01-03')

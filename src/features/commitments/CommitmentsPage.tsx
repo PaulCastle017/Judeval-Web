@@ -6,6 +6,7 @@ import { unwrap, useCategories } from '../../lib/queries'
 import { COMMITMENT_STATUS_LABELS, SPORT_EMOJI, SPORT_LABELS } from '../../lib/format'
 import { commitmentSchema, parseForm, type FieldErrors } from '../../lib/validation'
 import { useSport } from '../../sport/SportProvider'
+import { useWords } from '../../i18n/useWords'
 import { Badge, ConfirmButton, EmptyState, ErrorMessage, Field, PageHeader, Spinner } from '../../components/ui'
 import type { Enums, Tables } from '../../types/database'
 
@@ -18,6 +19,7 @@ const STATUS_ICON: Record<Status, string> = { pendiente: '⏳', cumplido: '✅',
 
 export function CommitmentsPage() {
   const sport = useSport()
+  const w = useWords()
   const categories = useCategories(sport)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
@@ -40,7 +42,7 @@ export function CommitmentsPage() {
     <div className="stack">
       <PageHeader
         title={`${SPORT_EMOJI[sport]} Nuestro estilo Judeval`}
-        subtitle="Compromisos sencillos y revisables, acordados a partir de lo que los jugadores dicen que quieren ser como equipo."
+        subtitle={`Compromisos sencillos y revisables, acordados a partir de lo que ${w.thePl} ${w.players} dicen que quieren ser como equipo.`}
         actions={
           !creating && (
             <button className="btn btn-primary" onClick={() => setCreating(true)}>

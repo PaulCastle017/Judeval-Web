@@ -1,20 +1,22 @@
 import { PageHeader } from '../../components/ui'
+import { useWords } from '../../i18n/useWords'
 
 // Resumen de la «Guía de Acompañamiento y Convivencia» de JUDEVAL (temporada 2026/27).
 export function GuidePage() {
+  const w = useWords()
   return (
     <div className="stack guide">
       <PageHeader
         title="Guía rápida"
-        subtitle="Que cada jugador se sienta visto, respetado y parte del grupo, sin dejar de lado la exigencia deportiva."
+        subtitle={`Que cada ${w.player} se sienta ${w.seen}, ${w.respected} y parte del grupo, sin dejar de lado la exigencia deportiva.`}
       />
 
       <section className="card callout">
         <h2>Idea central</h2>
         <p>
-          No todos los jugadores necesitan lo mismo. Algunos necesitan confianza; otros, estructura y límites; otros,
-          oportunidades para integrarse o aprender a liderar. Adaptar nuestra forma de acompañar no significa bajar las
-          expectativas, sino ayudar a cada uno a alcanzarlas.
+          No {w.all} {w.thePl} {w.players} necesitan lo mismo. {w.Some} necesitan confianza; {w.others}, estructura y
+          límites; {w.others}, oportunidades para integrarse o aprender a liderar. Adaptar nuestra forma de acompañar no
+          significa bajar las expectativas, sino ayudar a {w.eachOne} a alcanzarlas.
         </p>
       </section>
 
@@ -25,8 +27,11 @@ export function GuidePage() {
           <li>Corregimos conductas, no etiquetamos personas («es un desastre», «no se entera», «siempre la lía»).</li>
           <li>Cercanía y exigencia son compatibles: escuchamos, ponemos límites claros y damos oportunidades para reparar.</li>
           <li>La integración es responsabilidad del grupo y del cuerpo técnico.</li>
-          <li>Ser callado no es un problema que haya que arreglar.</li>
-          <li>Acompañamos sin invadir: no somos psicólogos ni sustitutos de la familia; pedimos apoyo cuando hace falta.</li>
+          <li>Ser {w.quiet} no es un problema que haya que arreglar.</li>
+          <li>
+            Acompañamos sin invadir: no somos {w.psychologists} ni {w.substitutes} de la familia; pedimos apoyo cuando hace
+            falta.
+          </li>
         </ul>
       </section>
 
@@ -41,12 +46,12 @@ export function GuidePage() {
             esperamos → dar oportunidad de rectificar. Faltas de respeto: con firmeza y, si se puede, en privado.
           </li>
           <li>
-            <strong>Reconocer avances concretos.</strong> Escuchar, animar a un compañero, volver a intentarlo, pedir
+            <strong>Reconocer avances concretos.</strong> Escuchar, animar a {w.a} {w.teammate}, volver a intentarlo, pedir
             ayuda, mantener la calma… Felicitación sincera y específica.
           </li>
           <li>
             <strong>Crear oportunidades para ayudarse.</strong> Parejas variadas, bienvenida a quien llega; no cargar
-            siempre a los mismos.
+            siempre a {w.theSame}.
           </li>
           <li>
             <strong>Cerrar con una pregunta breve.</strong> Respuestas voluntarias; lo delicado, en privado.
@@ -55,7 +60,7 @@ export function GuidePage() {
       </section>
 
       <section className="card">
-        <h2>Conocer a cada jugador poco a poco</h2>
+        <h2>Conocer a cada {w.player} poco a poco</h2>
         <p>Dos conversaciones individuales por semana, de 5 a 10 minutos. Temas posibles:</p>
         <ul>
           <li>Su vida fuera del equipo: «¿Qué te gusta hacer cuando no estás aquí?»</li>
@@ -63,10 +68,10 @@ export function GuidePage() {
           <li>Su experiencia en Judeval: «¿Qué es lo que más te gusta de venir?»</li>
           <li>Sus necesidades: «¿Qué haría que te sintieras más a gusto aquí?»</li>
           <li>Sus objetivos: «¿Hay algo que te gustaría conseguir este año?»</li>
-          <li>El grupo: «¿Te sientes integrado? ¿Hay algo que podríamos hacer mejor?»</li>
+          <li>El grupo: «¿Te sientes {w.integrated}? ¿Hay algo que podríamos hacer mejor?»</li>
         </ul>
         <p className="muted small">
-          No midamos la confianza por cuánto nos cuenta un jugador. No prometamos secreto absoluto y sigamos los
+          No midamos la confianza por cuánto nos cuenta {w.a} {w.player}. No prometamos secreto absoluto y sigamos los
           protocolos de protección de menores si surge una situación preocupante.
         </p>
       </section>
@@ -81,14 +86,14 @@ export function GuidePage() {
           <dd>Instrucciones claras y breves; comprobar comprensión discretamente; límites consistentes sin escenas.</dd>
           <dt>Responden mal o corrigen con dureza</dt>
           <dd>Norma común sobre el lenguaje; señalar la acción sin atacar a la persona; pedir reparación.</dd>
-          <dt>Nuevos, con barreras lingüísticas o que regresan</dt>
-          <dd>Bienvenida clara; explicar rutinas; compañeros de referencia; comprobar que siguen las instrucciones.</dd>
+          <dt>{w.NewPl}, con barreras lingüísticas o que regresan</dt>
+          <dd>Bienvenida clara; explicar rutinas; {w.teammates} de referencia; comprobar que siguen las instrucciones.</dd>
           <dt>Dificultades de asistencia</dt>
           <dd>Preguntar qué compromiso es realista; no confundir horario o distancia con falta de interés.</dd>
-          <dt>Lesionados o con condiciones físicas</dt>
+          <dt>{w.InjuredPl} o con condiciones físicas</dt>
           <dd>Mantener el vínculo si lo desean; adaptar a indicaciones sanitarias; consultar ante dolor.</dd>
           <dt>Liderazgo o gran calidad</dt>
-          <dd>Liderar con el ejemplo, incluir a los demás y corregir con respeto.</dd>
+          <dd>Liderar con el ejemplo, incluir a {w.theOthers} y corregir con respeto.</dd>
         </dl>
       </section>
 
@@ -96,7 +101,7 @@ export function GuidePage() {
         <h2>Tres errores a evitar</h2>
         <ul>
           <li>
-            <strong>Querer salvar a todos.</strong> Acompañar también es pedir ayuda.
+            <strong>Querer salvar a {w.all}.</strong> Acompañar también es pedir ayuda.
           </li>
           <li>
             <strong>Confundir compañerismo con ausencia de exigencia.</strong>
@@ -109,7 +114,7 @@ export function GuidePage() {
 
       <section className="card callout">
         <h2>La pregunta que nos orienta</h2>
-        <p>«¿Qué oportunidades estamos creando para que estos chavales aprendan a cuidarse entre sí?»</p>
+        <p>«¿Qué oportunidades estamos creando para que {w.these} {w.kids} aprendan a cuidarse entre sí?»</p>
       </section>
     </div>
   )

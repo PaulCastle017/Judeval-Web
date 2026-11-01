@@ -43,7 +43,7 @@ export function LoginPage() {
           <img className="login-crest" src="/escudo-512.png" alt="Escudo de la Escuela Deportiva JUDEVAL" width={140} height={140} />
           <span className="muted">Acompañar, unir y hacer equipo</span>
         </div>
-        <h1>Acceso entrenadores</h1>
+        <h1>Acceso del equipo técnico</h1>
         {submitError && <ErrorMessage message={submitError} />}
         <Field label="Email" error={errors.email}>
           <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
@@ -59,7 +59,7 @@ export function LoginPage() {
         <button className="btn btn-primary" type="submit" disabled={submitting}>
           {submitting ? 'Entrando…' : 'Entrar'}
         </button>
-        <p className="muted small">¿No tienes cuenta o has olvidado la contraseña? Pídesela al coordinador de JUDEVAL.</p>
+        <p className="muted small">¿No tienes cuenta o has olvidado la contraseña? Pídesela a la coordinación de JUDEVAL.</p>
       </form>
     </div>
   )

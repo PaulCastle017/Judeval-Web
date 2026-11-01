@@ -3,6 +3,8 @@ import {
   categorySchema,
   changePasswordSchema,
   commitmentSchema,
+  matchResultSchema,
+  matchSchema,
   newUserSchema,
   noteSchema,
   parseExercises,
@@ -11,7 +13,7 @@ import {
   reviewSchema,
   trainingSchema,
 } from './validation'
-import { addDays, daysBetween, endTime, isoWeekday, minutesBetween, playerName, relativeDayLabel, seasonStart } from './format'
+import { addDays, daysBetween, endTime, isoWeekday, matchOutcome, minutesBetween, playerName, relativeDayLabel, seasonStart } from './format'
 
 const CAT = '7d9f0e3a-1b2c-4d5e-8f90-123456789abc'
 
@@ -151,5 +153,28 @@ describe('format', () => {
   it('nombre visible del jugador', () => {
     expect(playerName({ first_name: 'David', last_name: '', display_name: 'David (Portero)' })).toBe('David (Portero)')
     expect(playerName({ first_name: 'Iván', last_name: 'Pérez', display_name: '' })).toBe('Iván Pérez')
+  })
+})
+
+describe('partidos', () => {
+  const base = { category_id: CAT, match_date: '2026-11-07', start_time: '', opponent: ' CD Rival ', location: '', venue: 'visitante', competition: 'Liga · J5', notes: '' }
+  it('valida y normaliza el partido', () => {
+    const r = parseForm(matchSchema, base)
+    expect(r.ok && r.data.opponent).toBe('CD Rival')
+    expect(r.ok && r.data.start_time).toBeNull()
+    expect(parseForm(matchSchema, { ...base, opponent: '  ' }).ok).toBe(false)
+    expect(parseForm(matchSchema, { ...base, venue: 'neutral' }).ok).toBe(false)
+  })
+  it('el resultado va completo o vacío', () => {
+    expect(parseForm(matchResultSchema, { goals_for: '', goals_against: '' }).ok).toBe(true)
+    expect(parseForm(matchResultSchema, { goals_for: '3', goals_against: '1' }).ok).toBe(true)
+    const r = parseForm(matchResultSchema, { goals_for: '3', goals_against: '' })
+    expect(!r.ok && r.errors.goals_against).toBeTruthy()
+  })
+  it('victoria, empate y derrota', () => {
+    expect(matchOutcome(3, 1)).toBe('victoria')
+    expect(matchOutcome(2, 2)).toBe('empate')
+    expect(matchOutcome(0, 1)).toBe('derrota')
+    expect(matchOutcome(null, null)).toBeNull()
   })
 })

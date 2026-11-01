@@ -87,6 +87,27 @@ export const trainingSchema = z.object({
 
 export type Exercise = z.output<typeof exerciseSchema>
 
+export const matchSchema = z.object({
+  category_id: z.uuid('Elige una categoría'),
+  match_date: date,
+  start_time: optionalTime,
+  opponent: z.string().trim().min(1, 'Indica el rival').max(120, 'Máximo 120 caracteres'),
+  location: optionalText(200),
+  venue: z.enum(['local', 'visitante']),
+  competition: optionalText(120),
+  notes: optionalText(2000),
+})
+
+export const matchResultSchema = z
+  .object({
+    goals_for: optionalInt(0, 99, 'Marcador no válido'),
+    goals_against: optionalInt(0, 99, 'Marcador no válido'),
+  })
+  .refine((v) => (v.goals_for === null) === (v.goals_against === null), {
+    path: ['goals_against'],
+    message: 'Completa los dos marcadores (o deja ambos vacíos)',
+  })
+
 /** Lee la columna jsonb `exercises`; si algo no encaja, devuelve lista vacía en vez de romper la pantalla. */
 export function parseExercises(value: unknown): Exercise[] {
   const result = z.array(exerciseSchema).safeParse(value)

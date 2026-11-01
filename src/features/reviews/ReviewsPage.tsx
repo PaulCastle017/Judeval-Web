@@ -4,10 +4,12 @@ import { supabase } from '../../lib/supabase'
 import { staffName, unwrap, usePlayers, useStaff } from '../../lib/queries'
 import { formatDate, playerName, SPORT_EMOJI } from '../../lib/format'
 import { useSport } from '../../sport/SportProvider'
+import { useWords } from '../../i18n/useWords'
 import { EmptyState, ErrorMessage, PageHeader, Spinner } from '../../components/ui'
 
 export function ReviewsPage() {
   const sport = useSport()
+  const w = useWords()
   const staff = useStaff()
   const players = usePlayers(sport)
   const reviews = useQuery({
@@ -28,7 +30,7 @@ export function ReviewsPage() {
     <div className="stack">
       <PageHeader
         title={`${SPORT_EMOJI[sport]} Revisiones`}
-        subtitle="Lo que hemos visto y queremos resaltar del grupo o de jugadores concretos."
+        subtitle={`Lo que hemos visto y queremos resaltar del grupo o de ${w.players} ${w.specificPl}.`}
         actions={
           <Link to="/revisiones/nueva" className="btn btn-primary">
             + Nueva revisión

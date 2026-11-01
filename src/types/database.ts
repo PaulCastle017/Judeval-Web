@@ -95,6 +95,64 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"match_players": {
+                  Row: {
+                    "comment": string,"match_id": string,"player_id": string,"recorded_by": string | null,"status": Database["public"]['Enums']["attendance_status"] | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "comment"?: string,"match_id": string,"player_id": string,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["attendance_status"] | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "comment"?: string,"match_id"?: string,"player_id"?: string,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["attendance_status"] | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "match_players_match_id_fkey"
+      columns: ["match_id"]
+isOneToOne: false
+      referencedRelation: "matches"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "match_players_player_id_fkey"
+      columns: ["player_id"]
+isOneToOne: false
+      referencedRelation: "players"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "match_players_recorded_by_fkey"
+      columns: ["recorded_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"matches": {
+                  Row: {
+                    "category_id": string,"competition": string,"created_at": string,"created_by": string | null,"goals_against": number | null,"goals_for": number | null,"id": string,"location": string,"match_date": string,"notes": string,"opponent": string,"start_time": string | null,"updated_at": string,"venue": Database["public"]['Enums']["match_venue"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category_id": string,"competition"?: string,"created_at"?: string,"created_by"?: string | null,"goals_against"?: number | null,"goals_for"?: number | null,"id"?: string,"location"?: string,"match_date": string,"notes"?: string,"opponent": string,"start_time"?: string | null,"updated_at"?: string,"venue"?: Database["public"]['Enums']["match_venue"]
+                  }
+                  Update: {
+                    "category_id"?: string,"competition"?: string,"created_at"?: string,"created_by"?: string | null,"goals_against"?: number | null,"goals_for"?: number | null,"id"?: string,"location"?: string,"match_date"?: string,"notes"?: string,"opponent"?: string,"start_time"?: string | null,"updated_at"?: string,"venue"?: Database["public"]['Enums']["match_venue"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "matches_category_id_fkey"
+      columns: ["category_id"]
+isOneToOne: false
+      referencedRelation: "categories"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "matches_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"player_notes": {
                   Row: {
                     "author_id": string | null,"body": string,"created_at": string,"follow_up": boolean,"follow_up_done": boolean,"id": string,"note_date": string,"player_id": string,"topic": Database["public"]['Enums']["note_topic"] | null,"type": Database["public"]['Enums']["note_type"],"updated_at": string
@@ -148,6 +206,32 @@ isOneToOne: false
     },{
       foreignKeyName: "players_updated_by_fkey"
       columns: ["updated_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"poll_reminders": {
+                  Row: {
+                    "category_id": string,"created_at": string,"created_by": string | null,"slot_date": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category_id": string,"created_at"?: string,"created_by"?: string | null,"slot_date": string
+                  }
+                  Update: {
+                    "category_id"?: string,"created_at"?: string,"created_by"?: string | null,"slot_date"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "poll_reminders_category_id_fkey"
+      columns: ["category_id"]
+isOneToOne: false
+      referencedRelation: "categories"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "poll_reminders_created_by_fkey"
+      columns: ["created_by"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -313,15 +397,23 @@ isOneToOne: false
               "last_news_date": string,"player_id": string
             }[]
                            },
+"player_match_stats":
+{ Args: { "p_category_id"?: string,"p_from"?: string,"p_to"?: string }; Returns: {
+              "ausente": number,"called_up": number,"justificado": number,"lesionado": number,"player_id": string,"presente": number,"rate": number
+            }[]
+                           },
 "save_review":
 { Args: { "p_body": string,"p_id": string,"p_player_ids": (string)[],"p_review_date": string,"p_sport": Database["public"]['Enums']["sport_type"] }; Returns: string
+                           },
+"set_match_squad":
+{ Args: { "p_match_id": string,"p_player_ids": (string)[] }; Returns: undefined
                            },
 "set_note_follow_up_done":
 { Args: { "p_done"?: boolean,"p_note_id": string }; Returns: undefined
                            }
           }
           Enums: {
-            "attendance_status": "presente"|"ausente"|"justificado"|"lesionado","commitment_status": "pendiente"|"cumplido"|"no_conseguido","note_topic": "vida_fuera"|"bienestar"|"experiencia"|"necesidades"|"objetivos"|"grupo"|"otro","note_type": "observacion"|"conversacion"|"reconocimiento"|"incidencia","player_position": "jugador"|"portero","player_status": "activo"|"lesionado"|"baja","sport_type": "futsal"|"voley","staff_role": "admin"|"coach"
+            "attendance_status": "presente"|"ausente"|"justificado"|"lesionado","commitment_status": "pendiente"|"cumplido"|"no_conseguido","match_venue": "local"|"visitante","note_topic": "vida_fuera"|"bienestar"|"experiencia"|"necesidades"|"objetivos"|"grupo"|"otro","note_type": "observacion"|"conversacion"|"reconocimiento"|"incidencia","player_position": "jugador"|"portero","player_status": "activo"|"lesionado"|"baja","sport_type": "futsal"|"voley","staff_role": "admin"|"coach"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -441,7 +533,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "attendance_status": ["presente", "ausente", "justificado", "lesionado"],"commitment_status": ["pendiente", "cumplido", "no_conseguido"],"note_topic": ["vida_fuera", "bienestar", "experiencia", "necesidades", "objetivos", "grupo", "otro"],"note_type": ["observacion", "conversacion", "reconocimiento", "incidencia"],"player_position": ["jugador", "portero"],"player_status": ["activo", "lesionado", "baja"],"sport_type": ["futsal", "voley"],"staff_role": ["admin", "coach"]
+            "attendance_status": ["presente", "ausente", "justificado", "lesionado"],"commitment_status": ["pendiente", "cumplido", "no_conseguido"],"match_venue": ["local", "visitante"],"note_topic": ["vida_fuera", "bienestar", "experiencia", "necesidades", "objetivos", "grupo", "otro"],"note_type": ["observacion", "conversacion", "reconocimiento", "incidencia"],"player_position": ["jugador", "portero"],"player_status": ["activo", "lesionado", "baja"],"sport_type": ["futsal", "voley"],"staff_role": ["admin", "coach"]
           }
         }
 } as const

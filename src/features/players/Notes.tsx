@@ -6,6 +6,7 @@ import { staffName, unwrap, useStaff } from '../../lib/queries'
 import { formatDate, NOTE_TOPIC_LABELS, NOTE_TYPE_LABELS, playerName, todayISO } from '../../lib/format'
 import { noteSchema, parseForm, type FieldErrors } from '../../lib/validation'
 import { useAuth } from '../../auth/AuthProvider'
+import { useWords } from '../../i18n/useWords'
 import { Badge, ConfirmButton, EmptyState, ErrorMessage, Field } from '../../components/ui'
 import type { Enums, Tables } from '../../types/database'
 
@@ -37,6 +38,7 @@ type NoteFormProps = {
 
 export function NoteForm({ playerId, playerOptions, note, initialType, initialFollowUp, onDone }: NoteFormProps) {
   const queryClient = useQueryClient()
+  const w = useWords()
   const [selectedPlayer, setSelectedPlayer] = useState(playerId ?? '')
   const [form, setForm] = useState({
     type: note?.type ?? initialType ?? ('conversacion' as Enums<'note_type'>),
@@ -64,7 +66,7 @@ export function NoteForm({ playerId, playerOptions, note, initialType, initialFo
   function onSubmit(e: FormEvent) {
     e.preventDefault()
     const parsed = parseForm(noteSchema, { ...form, topic: form.type === 'conversacion' ? form.topic : '' })
-    if (!note && !selectedPlayer) return setErrors({ ...(parsed.ok ? {} : parsed.errors), player: 'Elige un jugador' })
+    if (!note && !selectedPlayer) return setErrors({ ...(parsed.ok ? {} : parsed.errors), player: `Elige ${w.a} ${w.player}` })
     if (!parsed.ok) return setErrors(parsed.errors)
     setErrors({})
     save.mutate(parsed.data)
@@ -74,9 +76,9 @@ export function NoteForm({ playerId, playerOptions, note, initialType, initialFo
     <form className="card stack note-form" onSubmit={onSubmit} noValidate>
       {save.isError && <ErrorMessage message={toMessage(save.error)} />}
       {!note && !playerId && (
-        <Field label="Jugador *" error={errors.player}>
+        <Field label={`${w.Player} *`} error={errors.player}>
           <select value={selectedPlayer} onChange={(e) => setSelectedPlayer(e.target.value)} autoFocus>
-            <option value="">— Elige jugador —</option>
+            <option value="">— Elige {w.player} —</option>
             {playerOptions
               ?.filter((p) => p.status !== 'baja')
               .map((p) => (

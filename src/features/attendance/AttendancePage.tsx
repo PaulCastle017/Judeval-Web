@@ -4,9 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { unwrap, unwrapMaybe, useCategories, useCoachCategories, usePlayers } from '../../lib/queries'
-import { ATTENDANCE_LABELS, endTime, formatLongDate, formatTime, isoWeekday, playerName, SPORT_EMOJI, todayISO } from '../../lib/format'
+import { endTime, formatLongDate, formatTime, isoWeekday, playerName, SPORT_EMOJI, todayISO } from '../../lib/format'
 import { parseExercises, parseForm, sessionSchema } from '../../lib/validation'
 import { useSport } from '../../sport/SportProvider'
+import { useLabels, useWords } from '../../i18n/useWords'
 import { useAuth } from '../../auth/AuthProvider'
 import { ConfirmButton, EmptyState, ErrorMessage, Field, PageHeader, Spinner, SuccessMessage } from '../../components/ui'
 import type { Enums, Tables } from '../../types/database'
@@ -177,6 +178,8 @@ function AttendanceSheet({
 }) {
   const queryClient = useQueryClient()
   const { profile, isAdmin } = useAuth()
+  const w = useWords()
+  const labels = useLabels()
   const initialMarks = useMemo(() => {
     const m: Record<string, Mark> = {}
     for (const p of roster) m[p.id] = { status: null, comment: '' }
@@ -249,14 +252,14 @@ function AttendanceSheet({
     setFormError(null)
     const parsed = parseForm(sessionSchema, fields)
     if (!parsed.ok) return setFormError(Object.values(parsed.errors)[0] ?? 'Datos no válidos')
-    if (marked === 0 && !session) return setFormError('Marca la asistencia de al menos un jugador.')
+    if (marked === 0 && !session) return setFormError(`Marca la asistencia de al menos ${w.a} ${w.player}.`)
     save.mutate(parsed.data)
   }
 
   if (roster.length === 0) {
     return (
       <EmptyState>
-        No hay jugadores en esta categoría. <Link to="/jugadores">Añade jugadores</Link> primero.
+        No hay {w.players} en esta categoría. <Link to="/jugadores">Añade {w.players}</Link> primero.
       </EmptyState>
     )
   }
@@ -280,7 +283,7 @@ function AttendanceSheet({
             <li key={p.id} className="attendance-row">
               <div className="attendance-name">
                 <Link to={`/jugadores/${p.id}`}>{playerName(p)}</Link>
-                {p.status === 'lesionado' && <span className="muted small"> · lesionado</span>}
+                {p.status === 'lesionado' && <span className="muted small"> · {w.injured}</span>}
                 {p.availability_notes && <span className="muted small block">{p.availability_notes}</span>}
               </div>
               <div className="toggle-group" role="radiogroup" aria-label={`Asistencia de ${playerName(p)}`}>
@@ -290,12 +293,12 @@ function AttendanceSheet({
                     type="button"
                     role="radio"
                     aria-checked={m.status === s}
-                    title={ATTENDANCE_LABELS[s]}
+                    title={labels.attendance[s]}
                     className={`toggle toggle-${s}${m.status === s ? ' on' : ''}`}
                     onClick={() => setMark(p.id, { status: m.status === s ? null : s })}
                   >
                     {SHORT[s]}
-                    <span className="sr-only"> {ATTENDANCE_LABELS[s]}</span>
+                    <span className="sr-only"> {labels.attendance[s]}</span>
                   </button>
                 ))}
                 <button
@@ -322,7 +325,9 @@ function AttendanceSheet({
           )
         })}
       </ul>
-      <p className="muted small">P = presente · A = ausente · J = justificado · L = lesionado. Pulsa de nuevo para desmarcar.</p>
+      <p className="muted small">
+        {STATUSES.map((s) => `${SHORT[s]} = ${labels.attendance[s].toLowerCase()}`).join(' · ')}. Pulsa de nuevo para desmarcar.
+      </p>
 
       <section className="card stack">
         <h2>Cierre del entrenamiento</h2>

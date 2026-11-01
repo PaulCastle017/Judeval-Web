@@ -2,23 +2,25 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useSport } from '../sport/SportProvider'
 import { SPORT_EMOJI, SPORT_LABELS } from '../lib/format'
+import { useWords } from '../i18n/useWords'
+import type { Words } from '../i18n/gender'
 
-type NavItem = { to: string; label: string; icon: string; end?: boolean }
+type NavItem = { to: string; label: string; short?: string; icon: string; end?: boolean }
 
-// Orden del menú: Entrenamientos va entre Jugadores y Asistencia
-const NAV_LINKS: NavItem[] = [
+// Orden del menú: Jugadores · Entrenamientos · Partidos · Asistencia…
+const navLinks = (w: Words): NavItem[] => [
   { to: '/', label: 'Inicio', icon: '🏠', end: true },
-  { to: '/jugadores', label: 'Jugadores', icon: '👥' },
-  { to: '/entrenamientos', label: 'Entrenamientos', icon: '📋' },
+  { to: '/jugadores', label: w.Players, icon: '👥' },
+  { to: '/entrenamientos', label: 'Entrenamientos', short: 'Entrenos', icon: '📋' },
+  { to: '/partidos', label: 'Partidos', icon: '🏆' },
   { to: '/asistencia', label: 'Asistencia', icon: '✅' },
   { to: '/revisiones', label: 'Revisiones', icon: '📝' },
   { to: '/compromisos', label: 'Compromisos', icon: '🎯' },
   { to: '/guia', label: 'Guía', icon: '📖' },
 ]
 
-// En móvil caben 4 accesos + «Más»
-const MOBILE_LINKS = NAV_LINKS.slice(0, 4)
-const MORE_LINKS = NAV_LINKS.slice(4)
+// En móvil: 5 accesos + «Más»
+const MOBILE_COUNT = 5
 
 function SportPill() {
   const sport = useSport()
@@ -42,6 +44,7 @@ function SportPill() {
 
 export function Layout() {
   const { profile, isAdmin, signOut } = useAuth()
+  const links = navLinks(useWords())
 
   return (
     <div className="app">
@@ -52,7 +55,7 @@ export function Layout() {
         </NavLink>
         <SportPill />
         <nav className="topnav" aria-label="Principal">
-          {NAV_LINKS.map((l) => (
+          {links.map((l) => (
             <NavLink key={l.to} to={l.to} end={l.end}>
               {l.label}
             </NavLink>
@@ -74,12 +77,12 @@ export function Layout() {
       </main>
 
       <nav className="bottomnav" aria-label="Navegación móvil">
-        {MOBILE_LINKS.map((l) => (
-          <NavLink key={l.to} to={l.to} end={l.end}>
+        {links.slice(0, MOBILE_COUNT).map((l) => (
+          <NavLink key={l.to} to={l.to} end={l.end} aria-label={l.label}>
             <span aria-hidden="true" className="bottomnav-icon">
               {l.icon}
             </span>
-            {l.label}
+            <span aria-hidden="true">{l.short ?? l.label}</span>
           </NavLink>
         ))}
         <NavLink to="/mas">
@@ -96,6 +99,7 @@ export function Layout() {
 export function MorePage() {
   const { isAdmin, signOut } = useAuth()
   const sport = useSport()
+  const moreLinks = navLinks(useWords()).slice(MOBILE_COUNT)
   return (
     <div className="stack">
       <h1>Más opciones</h1>
@@ -104,7 +108,7 @@ export function MorePage() {
           <span aria-hidden="true">{SPORT_EMOJI[sport]}</span> Cambiar de deporte
           <span className="muted small push-right">Ahora: {SPORT_LABELS[sport]}</span>
         </NavLink>
-        {MORE_LINKS.map((l) => (
+        {moreLinks.map((l) => (
           <NavLink key={l.to} to={l.to}>
             <span aria-hidden="true">{l.icon}</span> {l.label}
           </NavLink>

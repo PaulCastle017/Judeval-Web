@@ -8,6 +8,7 @@ import { formatDate, playerName, todayISO } from '../../lib/format'
 import { parseForm, reviewSchema, type FieldErrors } from '../../lib/validation'
 import { useAuth } from '../../auth/AuthProvider'
 import { useSport } from '../../sport/SportProvider'
+import { wordsForSport } from '../../i18n/useWords'
 import { ConfirmButton, ErrorMessage, Field, Spinner, SuccessMessage } from '../../components/ui'
 import type { Tables } from '../../types/database'
 
@@ -49,6 +50,7 @@ function ReviewForm({ review }: { review: ReviewWithPlayers | null }) {
   const staff = useStaff()
   // Jugadores del deporte de la revisión (normalmente el activo)
   const players = usePlayers(review?.sport ?? sport)
+  const w = wordsForSport(review?.sport ?? sport)
 
   const [reviewDate, setReviewDate] = useState(review?.review_date ?? todayISO())
   const [body, setBody] = useState(review?.body ?? '')
@@ -146,14 +148,16 @@ function ReviewForm({ review }: { review: ReviewWithPlayers | null }) {
       </section>
 
       <section className="card stack-sm">
-        <h2>👥 Jugadores mencionados (opcional)</h2>
+        <h2>
+          👥 {w.Players} {w.mentionedPl} (opcional)
+        </h2>
         {selected.length > 0 ? (
           <ul className="chips">
             {selected.map((id) => {
               const p = playerById.get(id)
               return (
                 <li key={id}>
-                  <button type="button" className="chip chip-on" onClick={() => toggle(id)} aria-label={`Quitar ${p ? playerName(p) : 'jugador'}`}>
+                  <button type="button" className="chip chip-on" onClick={() => toggle(id)} aria-label={`Quitar ${p ? playerName(p) : w.player}`}>
                     {p ? playerName(p) : '…'} ✕
                   </button>
                 </li>
@@ -163,7 +167,7 @@ function ReviewForm({ review }: { review: ReviewWithPlayers | null }) {
         ) : (
           <p className="muted small">Ninguno seleccionado.</p>
         )}
-        <input type="search" placeholder="Buscar jugador para etiquetar…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input type="search" placeholder={`Buscar ${w.player} para etiquetar…`} value={search} onChange={(e) => setSearch(e.target.value)} />
         {players.isPending && <Spinner />}
         {players.isError && <ErrorMessage error={players.error} onRetry={players.refetch} />}
         <ul className="chips">
