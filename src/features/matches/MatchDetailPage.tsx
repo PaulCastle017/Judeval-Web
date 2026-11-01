@@ -11,9 +11,12 @@ import { useSport } from '../../sport/SportProvider'
 import { labelsForSport, wordsForSport } from '../../i18n/useWords'
 import { ConfirmButton, ErrorMessage, Field, Spinner, SuccessMessage } from '../../components/ui'
 import { MatchResultBadge } from './MatchResultBadge'
-import type { Enums, Tables } from '../../types/database'
+import type { Enums, Tables, TablesUpdate } from '../../types/database'
+import { parseSetRows, parseSets, type SetRow } from '../../lib/volley'
+import { VolleySetsEditor } from './VolleySetsEditor'
+import { Lineup } from './Lineup'
 
-type MatchPlayer = Pick<Tables<'match_players'>, 'player_id' | 'status' | 'comment'>
+type MatchPlayer = Pick<Tables<'match_players'>, 'player_id' | 'status' | 'comment' | 'lineup_slot'>
 type MatchWithSquad = Tables<'matches'> & { match_players: MatchPlayer[] }
 type Status = Enums<'attendance_status'>
 
@@ -21,7 +24,17 @@ const STATUSES: Status[] = ['presente', 'ausente', 'justificado', 'lesionado']
 const SHORT: Record<Status, string> = { presente: 'P', ausente: 'A', justificado: 'J', lesionado: 'L' }
 const normalize = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
 
-/** /partidos/nuevo (alta) o /partidos/:id (datos, convocatoria, asistencia y resultado). */
+/** Clave que solo cambia si cambia la convocatoria (no al recargar tras guardar). */
+const squadKey = (m: MatchWithSquad) =>
+  `${m.id}-${m.match_players
+    .map((p) => p.player_id)
+    .sort()
+    .join(',')}`
+
+// Aviso (no límite) de convocatoria numerosa
+const SQUAD_WARNING: Record<Enums<'sport_type'>, number> = { futsal: 12, voley: 14 }
+
+/** /partidos/nuevo (alta) o /partidos/:id (datos, convocatoria, alineación, asistencia y resultado). */
 export function MatchDetailPage() {
   const { id = '' } = useParams()
   const isNew = id === 'nuevo'
@@ -31,7 +44,7 @@ export function MatchDetailPage() {
     enabled: !isNew,
     queryKey: ['matches', 'detail', id],
     queryFn: async (): Promise<MatchWithSquad | null> =>
-      unwrapMaybe(await supabase.from('matches').select('*, match_players(player_id, status, comment)').eq('id', id).maybeSingle()),
+      unwrapMaybe(await supabase.from('matches').select('*, match_players(player_id, status, comment, lineup_slot)').eq('id', id).maybeSingle()),
   })
 
   if (categories.isPending || (!isNew && match.isPending)) return <Spinner />
@@ -53,16 +66,8 @@ export function MatchDetailPage() {
       {/* Claves estables: recargar tras guardar no debe remontar (se perdería el aviso de guardado).
           El día de partido solo se reinicia si cambia la convocatoria. */}
       {m && <MatchSquad key={`squad-${m.id}`} match={m} sport={matchSport} />}
-      {m && m.match_date <= todayISO() && (
-        <MatchDay
-          key={`day-${m.id}-${m.match_players
-            .map((p) => p.player_id)
-            .sort()
-            .join(',')}`}
-          match={m}
-          sport={matchSport}
-        />
-      )}
+      {m && <Lineup key={`lineup-${squadKey(m)}`} matchId={m.id} squad={m.match_players} sport={matchSport} />}
+      {m && m.match_date <= todayISO() && <MatchDay key={`day-${squadKey(m)}`} match={m} sport={matchSport} />}
     </div>
   )
 }
@@ -132,7 +137,8 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
           <h1>{match ? `vs ${match.opponent}` : 'Nuevo partido'}</h1>
           {match && (
             <p className="muted">
-              {formatLongDate(match.match_date)} <MatchResultBadge goalsFor={match.goals_for} goalsAgainst={match.goals_against} />
+              {formatLongDate(match.match_date)}{' '}
+              <MatchResultBadge goalsFor={match.goals_for} goalsAgainst={match.goals_against} sets={parseSets(match.sets)} />
             </p>
           )}
         </div>
@@ -294,10 +300,15 @@ function MatchSquad({ match, sport }: { match: MatchWithSquad; sport: Enums<'spo
           )
         })}
       </ul>
+      {selected.length > SQUAD_WARNING[sport] && (
+        <p className="small text-warn">
+          Hay {selected.length} {w.calledUpPl}: más de lo habitual ({SQUAD_WARNING[sport]}). Revisa el máximo que permite la competición.
+        </p>
+      )}
       {removingWithAttendance > 0 && (
         <p className="small text-danger">
           Al guardar se borrará la asistencia ya marcada de {removingWithAttendance}{' '}
-          {removingWithAttendance === 1 ? w.player : w.players} que quitas de la convocatoria.
+          {removingWithAttendance === 1 ? w.player : w.players} que quitas de la convocatoria (y su puesto en la alineación).
         </p>
       )}
       {save.isError && <ErrorMessage message={toMessage(save.error)} />}
@@ -331,11 +342,16 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
     Object.fromEntries(match.match_players.map((p) => [p.player_id, p.status])),
   )
   const [score, setScore] = useState({ goals_for: match.goals_for?.toString() ?? '', goals_against: match.goals_against?.toString() ?? '' })
+  // Voley: 5 filas (solo se muestran las que hacen falta), rellenas con los sets guardados
+  const [setRows, setSetRows] = useState<SetRow[]>(() => {
+    const saved = parseSets(match.sets) ?? []
+    return Array.from({ length: 5 }, (_, i) => ({ for: saved[i]?.for.toString() ?? '', against: saved[i]?.against.toString() ?? '' }))
+  })
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saved, setSaved] = useState(false)
 
   const save = useMutation({
-    mutationFn: async (result: ReturnType<typeof matchResultSchema.parse>) => {
+    mutationFn: async (result: TablesUpdate<'matches'>) => {
       const rows = squad.map((p) => ({ match_id: match.id, player_id: p.player_id, status: marks[p.player_id] ?? null }))
       if (rows.length) unwrap(await supabase.from('match_players').upsert(rows, { onConflict: 'match_id,player_id' }))
       unwrap(await supabase.from('matches').update(result).eq('id', match.id).select('id').single())
@@ -348,6 +364,13 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
   })
 
   function onSave() {
+    if (sport === 'voley') {
+      const parsed = parseSetRows(setRows)
+      if (!parsed.ok) return setErrors({ sets: parsed.error })
+      setErrors({})
+      // Los sets ganados (goals_for / goals_against) los calcula la base de datos
+      return save.mutate(parsed.sets ? { sets: parsed.sets } : { sets: null, goals_for: null, goals_against: null })
+    }
     const parsed = parseForm(matchResultSchema, score)
     if (!parsed.ok) return setErrors(parsed.errors)
     setErrors({})
@@ -360,6 +383,17 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
 
       <div className="stack-sm">
         <h3>Resultado</h3>
+        {sport === 'voley' ? (
+          <VolleySetsEditor
+            rows={setRows}
+            opponent={match.opponent}
+            error={errors.sets}
+            onChange={(rows) => {
+              setSaved(false)
+              setSetRows(rows)
+            }}
+          />
+        ) : (
         <div className="score-row">
           <Field label="JUDEVAL" error={errors.goals_for}>
             <input
@@ -387,6 +421,7 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
             />
           </Field>
         </div>
+        )}
       </div>
 
       <div className="stack-sm">

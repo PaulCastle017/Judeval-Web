@@ -7,6 +7,8 @@ import { parseExercises } from '../../lib/validation'
 import { useSport } from '../../sport/SportProvider'
 import { Badge, EmptyState, ErrorMessage, PageHeader, Spinner } from '../../components/ui'
 import type { Json, Tables } from '../../types/database'
+import { ExerciseLibrary } from './ExerciseLibrary'
+import { ExerciseThumb } from './ExerciseCard'
 
 type TrainingRow = {
   id: string
@@ -64,6 +66,20 @@ export function TrainingsPage() {
   })
 
   const newLink = `/entrenamientos/nuevo${categoryFilter ? `?categoria=${categoryFilter}` : ''}`
+  const view = (['proximos', 'anteriores', 'biblioteca'] as const).find((v) => v === params.get('vista')) ?? 'proximos'
+
+  function setParam(key: string, value: string) {
+    const next = new URLSearchParams(params)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    setParams(next, { replace: true })
+  }
+
+  const TABS = [
+    { id: 'proximos', label: 'Próximos' },
+    { id: 'anteriores', label: 'Anteriores' },
+    { id: 'biblioteca', label: '📚 Biblioteca de ejercicios' },
+  ] as const
 
   return (
     <div className="stack">
@@ -77,50 +93,67 @@ export function TrainingsPage() {
         }
       />
 
-      <div className="filters">
-        <select
-          value={categoryFilter}
-          onChange={(e) => setParams(e.target.value ? { categoria: e.target.value } : {}, { replace: true })}
-          aria-label="Categoría"
-        >
-          <option value="">Todas las categorías</option>
-          {categories.data?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+      <div className="tabs" role="tablist">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={view === t.id}
+            className={view === t.id ? 'on' : ''}
+            onClick={() => setParam('vista', t.id === 'proximos' ? '' : t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {categories.isError && <ErrorMessage error={categories.error} onRetry={categories.refetch} />}
+      {view === 'biblioteca' ? (
+        <ExerciseLibrary sport={sport} />
+      ) : (
+        <>
+          <div className="filters">
+            <select value={categoryFilter} onChange={(e) => setParam('categoria', e.target.value)} aria-label="Categoría">
+              <option value="">Todas las categorías</option>
+              {categories.data?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      <section className="stack-sm">
-        <h2>Próximos</h2>
-        {upcoming.isPending && <Spinner />}
-        {upcoming.isError && <ErrorMessage error={upcoming.error} onRetry={upcoming.refetch} />}
-        {upcoming.isSuccess && upcoming.data.length === 0 && (
-          <EmptyState>
-            No hay entrenamientos programados. <Link to={newLink}>Crea el primero</Link>.
-          </EmptyState>
-        )}
-        <div className="training-grid">
-          {upcoming.data?.map((t) => (
-            <TrainingCard key={t.id} training={t} categories={categories.data ?? []} today={today} />
-          ))}
-        </div>
-      </section>
+          {categories.isError && <ErrorMessage error={categories.error} onRetry={categories.refetch} />}
 
-      <section className="stack-sm">
-        <h2>Anteriores</h2>
-        {past.isPending && <Spinner />}
-        {past.isError && <ErrorMessage error={past.error} onRetry={past.refetch} />}
-        {past.isSuccess && past.data.length === 0 && <EmptyState>Todavía no hay entrenamientos anteriores.</EmptyState>}
-        <div className="training-grid">
-          {past.data?.map((t) => (
-            <TrainingCard key={t.id} training={t} categories={categories.data ?? []} today={today} />
-          ))}
-        </div>
-      </section>
+          {view === 'proximos' ? (
+            <section className="stack-sm">
+              {upcoming.isPending && <Spinner />}
+              {upcoming.isError && <ErrorMessage error={upcoming.error} onRetry={upcoming.refetch} />}
+              {upcoming.isSuccess && upcoming.data.length === 0 && (
+                <EmptyState>
+                  No hay entrenamientos programados. <Link to={newLink}>Crea el primero</Link>.
+                </EmptyState>
+              )}
+              <div className="training-grid">
+                {upcoming.data?.map((t) => (
+                  <TrainingCard key={t.id} training={t} categories={categories.data ?? []} today={today} />
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className="stack-sm">
+              {past.isPending && <Spinner />}
+              {past.isError && <ErrorMessage error={past.error} onRetry={past.refetch} />}
+              {past.isSuccess && past.data.length === 0 && <EmptyState>Todavía no hay entrenamientos anteriores.</EmptyState>}
+              <div className="training-grid">
+                {past.data?.map((t) => (
+                  <TrainingCard key={t.id} training={t} categories={categories.data ?? []} today={today} />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -149,9 +182,16 @@ function TrainingCard({ training: t, categories, today }: { training: TrainingRo
         {t.duration_minutes && <span className="muted"> · {t.duration_minutes} min</span>}
       </p>
       {exercises.length > 0 && (
-        <p className="muted small">
-          {exercises.length} ejercicio{exercises.length === 1 ? '' : 's'}: {exercises.map((e) => e.name).join(' · ')}
-        </p>
+        <div className="ex-strip">
+          <span className="ex-strip-thumbs" aria-hidden="true">
+            {exercises.slice(0, 4).map((e, i) => (
+              <ExerciseThumb key={i} url={e.url} size="sm" />
+            ))}
+          </span>
+          <span className="muted small">
+            {exercises.length} ejercicio{exercises.length === 1 ? '' : 's'}: {exercises.map((e) => e.name).join(' · ')}
+          </span>
+        </div>
       )}
       {t.notes && <p className="clamp">{t.notes}</p>}
       <footer className="row">

@@ -59,6 +59,14 @@ export function usePlayers(sport: Sport) {
   })
 }
 
+/** Biblioteca de ejercicios del deporte (compartida por el equipo técnico). */
+export function useExercises(sport: Sport) {
+  return useQuery({
+    queryKey: ['exercises', sport],
+    queryFn: async () => unwrap(await supabase.from('exercises').select('*').eq('sport', sport).order('title')),
+  })
+}
+
 export function staffName(staff: { id: string; full_name: string; email: string }[] | undefined, id: string | null) {
   if (!id) return 'Sistema'
   const p = staff?.find((s) => s.id === id)

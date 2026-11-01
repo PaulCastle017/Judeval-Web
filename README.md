@@ -11,8 +11,15 @@ Basada en la guía «Acompañar, unir y hacer equipo»:
   seguimientos pendientes (con ➕) y jugadores «sin noticias individuales» en X días (X lo configura cada entrenador).
 - **Jugadores**: ficha por categoría con disponibilidad, consideraciones físicas, asistencia, revisiones en las que se le menciona y cronología de notas
   (observaciones, conversaciones individuales, reconocimientos e incidencias) con seguimientos pendientes.
-- **Entrenamientos**: planificación de cada sesión (fecha, hora, duración, categoría, notas y ejercicios opcionales). Sobre esa misma sesión se pasa lista.
-- **Partidos**: calendario (rival, lugar, local/visitante, competición), convocatoria, asistencia de los convocados y resultado. Cuentan en el historial y en la ficha.
+- **Entrenamientos**: pestañas Próximos / Anteriores / **Biblioteca de ejercicios**. Cada sesión tiene fecha, hora, duración, categoría, notas y ejercicios;
+  al añadir un ejercicio se elige de la biblioteca (con miniatura del vídeo), se crea uno nuevo o se añade uno rápido. Cada ejercicio lleva sus minutos,
+  notas y orden, y una barra de tiempo muestra el reparto. Sobre esa misma sesión se pasa lista.
+- **Biblioteca de ejercicios** (compartida por deporte): enlaces de YouTube o Instagram, o explicación escrita, con etiquetas (calentamiento, técnica,
+  táctica, físico, juego reducido, vuelta a la calma). Los vídeos de YouTube se ven dentro de la app solo al pulsar (`youtube-nocookie`).
+  Editar o borrar un ejercicio no altera los entrenamientos ya preparados (guardan una copia).
+- **Partidos**: calendario (rival, lugar, local/visitante, competición), convocatoria, **alineación sobre el campo** (fútbol sala: portero, cierre,
+  alas y pívot; voley: rotación inicial P1–P6; se coloca tocando o arrastrando), asistencia de los convocados y resultado según el deporte
+  (fútbol sala: marcador; voley: puntos de cada set, al mejor de 5). Cuentan en el historial y en la ficha.
 - **Asistencia**: pasar lista desde el móvil (presente, ausente, justificado o lesionado), pregunta de cierre e historial con porcentajes.
 - **Revisiones**: texto libre con lo que se ha visto o se quiere resaltar, con jugadores etiquetados opcionalmente.
 - **Compromisos**: «Nuestro estilo Judeval», con estado (Objetivo Cumplido, Pendiente o No Conseguido) y filtros.
@@ -236,6 +243,7 @@ Cuando una versión incluye una migración nueva en `supabase/migrations/`, **el
 | --- | --- | --- |
 | `20261031120000_sports_trainings.sql` | Deportes, entrenamientos planificados, revisiones libres, estados de compromisos | Elimina las 6 columnas antiguas de revisiones (sus textos se conservan en `body`) |
 | `20261101120000_matches_polls.sql` | Partidos (convocatoria, asistencia, resultado) y estado de la encuesta de WhatsApp | Solo añade tablas y funciones |
+| `20261102120000_sets_lineups_library.sql` | Resultado de voley por sets, alineaciones y biblioteca de ejercicios | Solo añade; los partidos de voley anteriores con marcador numérico se conservan y siguen siendo editables |
 
 1. **Copia de seguridad**:
 
@@ -250,7 +258,7 @@ Cuando una versión incluye una migración nueva en `supabase/migrations/`, **el
    ```
 
    (Sin CLI: pega el contenido del archivo de la migración en **SQL Editor** y ejecútalo una vez.)
-3. **Comprobar** en Supabase → Table Editor que existen las tablas `matches`, `match_players` y `poll_reminders`.
+3. **Comprobar** en Supabase → Table Editor que existe la tabla `exercises` y que `matches` tiene la columna `sets`.
 4. **Publicar la web**: `git add .`, `git commit -m "…"` y `git push`. Vercel la despliega solo en 1–2 minutos.
 
 La Edge Function `admin-users` no cambia con esta migración y no hace falta volver a desplegarla.

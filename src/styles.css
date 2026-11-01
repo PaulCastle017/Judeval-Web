@@ -359,6 +359,110 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px soli
 .score-input { font-size: 1.6rem; font-weight: 750; text-align: center; }
 .score-sep { font-size: 1.6rem; font-weight: 750; padding-bottom: 0.55rem; color: var(--muted); }
 
+.sets-grid { display: grid; grid-template-columns: auto minmax(4rem, 6rem) minmax(4rem, 6rem); gap: var(--s2) var(--s3); align-items: center; }
+.sets-row { display: contents; }
+.sets-head { font-size: 0.8rem; font-weight: 650; color: var(--muted); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sets-label { font-weight: 650; }
+.set-input { font-size: 1.3rem; padding: 0.45rem; }
+.sets-summary { font-size: 1.1rem; font-weight: 750; color: var(--purple-dark); margin: 0; }
+
+/* Alineación ------------------------------------------------------------- */
+.text-warn { color: var(--warn); }
+.court { position: relative; width: 100%; max-width: 420px; aspect-ratio: 1 / 1; margin: var(--s2) auto; border-radius: 14px; overflow: visible; }
+.court-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.court-line { fill: none; stroke: rgba(255, 255, 255, 0.85); stroke-width: 0.8; vector-effect: non-scaling-stroke; }
+.court-fill-futsal { fill: #2f7d57; }
+.court-fill-volley { fill: #d9894a; }
+.court-dot { fill: rgba(255, 255, 255, 0.9); }
+.court-goal { fill: #fff; }
+.court-net { stroke: #141414; stroke-width: 3; vector-effect: non-scaling-stroke; }
+.court-dash { stroke-dasharray: 4 3; }
+.slot {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: #fff; max-width: 34%;
+}
+.slot-token {
+  width: 3rem; height: 3rem; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 800; font-size: 0.95rem; border: 2px dashed rgba(255, 255, 255, 0.9); background: rgba(0, 0, 0, 0.18);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.slot-filled .slot-token { border: 3px solid #fff; background: var(--purple); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3); touch-action: none; }
+.slot-open .slot-token, .slot-target .slot-token { transform: scale(1.12); box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.55); }
+.slot-name {
+  font-size: 0.72rem; font-weight: 700; line-height: 1.1; text-align: center; padding: 1px 6px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.45); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.slot:focus-visible .slot-token { outline: 3px solid #fff; outline-offset: 2px; }
+.slot-picker { border: 1px solid var(--lilac-strong); background: #fffbfe; border-radius: var(--radius-sm); padding: var(--s3); display: flex; flex-direction: column; gap: var(--s2); }
+.bench { display: flex; flex-direction: column; gap: var(--s2); }
+.bench-chip { touch-action: none; }
+.drag-ghost {
+  position: fixed; z-index: 50; transform: translate(-50%, -120%); pointer-events: none;
+  background: var(--purple); color: #fff; font-weight: 700; padding: 0.35rem 0.7rem; border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); white-space: nowrap;
+}
+
+/* Biblioteca de ejercicios ------------------------------------------------- */
+.ex-grid, .ex-picker-list { display: grid; gap: var(--s3); grid-template-columns: 1fr; }
+@media (min-width: 640px) { .ex-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 960px) { .ex-grid { grid-template-columns: repeat(3, 1fr); } }
+.ex-picker-list { max-height: 22rem; overflow-y: auto; padding: 2px; }
+.ex-card {
+  display: flex; align-items: center; gap: var(--s3); width: 100%; text-align: left; font: inherit; color: inherit;
+  cursor: pointer; padding: var(--s3); transition: box-shadow 0.15s, border-color 0.15s;
+}
+.ex-card:hover { box-shadow: var(--shadow-md); border-color: var(--lilac-strong); }
+.ex-card-on { border-color: var(--purple); box-shadow: 0 0 0 2px var(--purple); }
+.ex-card-body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.ex-card-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-thumb { position: relative; flex: 0 0 auto; border-radius: 10px; overflow: hidden; background: #1d1d1d; display: grid; place-items: center; }
+.ex-thumb-md { width: 96px; height: 54px; }
+.ex-thumb-sm { width: 64px; height: 36px; border-radius: 8px; }
+.ex-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ex-thumb-icon { background: var(--lilac); font-size: 1.4rem; }
+.ex-thumb-sm.ex-thumb-icon { font-size: 1.05rem; }
+.ex-play {
+  position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%);
+  width: 1.6rem; height: 1.6rem; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(0, 0, 0, 0.6); color: #fff; font-size: 0.7rem;
+}
+.ex-play-lg { width: 3.2rem; height: 3.2rem; font-size: 1.3rem; background: rgba(153, 0, 116, 0.85); }
+.ex-detail { border-color: var(--lilac-strong); }
+.video-frame, .video-poster { position: relative; width: 100%; max-width: 640px; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); overflow: hidden; background: #000; }
+.video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.video-poster { border: 0; padding: 0; cursor: pointer; }
+.video-poster img { width: 100%; height: 100%; object-fit: cover; }
+.ex-url-row { display: flex; align-items: flex-end; gap: var(--s3); }
+.ex-url-row .field { flex: 1; }
+.ex-picker, .ex-form-compact { border-color: var(--lilac-strong); background: #fffbfe; }
+.tag { font-size: 0.72rem; font-weight: 650; padding: 0.12rem 0.5rem; border-radius: 999px; white-space: nowrap; background: #efeaed; color: #3d383b; }
+.tag-calentamiento, .tag-bg-calentamiento { background: #ffe3d6; color: #9a3b12; }
+.tag-tecnica, .tag-bg-tecnica { background: #dcecff; color: #1d4f91; }
+.tag-tactica, .tag-bg-tactica { background: #efe0ff; color: #5b2d91; }
+.tag-fisico, .tag-bg-fisico { background: #ffe1e6; color: #a1203a; }
+.tag-juego_reducido, .tag-bg-juego_reducido { background: #fff1c7; color: #7a5a00; }
+.tag-vuelta_calma, .tag-bg-vuelta_calma { background: #dff5e7; color: #1f7a4d; }
+.chip-sm { padding: 0.2rem 0.55rem; font-size: 0.8rem; }
+.ex-strip { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.ex-strip-thumbs { display: inline-flex; gap: 4px; }
+.exercise-drag { cursor: grab; touch-action: none; user-select: none; color: var(--muted); font-size: 1.2rem; padding: 0.3rem 0.1rem; align-self: center; }
+.exercise-drop { outline: 2px dashed var(--purple); outline-offset: 2px; }
+.exercise-more summary { cursor: pointer; color: var(--purple); font-size: 0.85rem; font-weight: 600; }
+.exercise-more[open] { display: flex; flex-direction: column; gap: var(--s2); flex-basis: 100%; }
+.exercise-summary-row { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.time-bar { display: flex; height: 0.85rem; border-radius: 999px; overflow: hidden; background: var(--line); gap: 2px; }
+.time-seg { display: block; height: 100%; min-width: 4px; }
+/* En la barra, colores intensos (las etiquetas usan la versión suave) */
+.time-seg.tag-bg-none { background: #a99ca4; }
+.time-seg.tag-bg-calentamiento { background: #e8743b; }
+.time-seg.tag-bg-tecnica { background: #3b82c4; }
+.time-seg.tag-bg-tactica { background: #8a4fcf; }
+.time-seg.tag-bg-fisico { background: #d6455f; }
+.time-seg.tag-bg-juego_reducido { background: #e0b100; }
+.time-seg.tag-bg-vuelta_calma { background: #34a36a; }
+.time-free { background: repeating-linear-gradient(45deg, transparent 0 4px, rgba(0, 0, 0, 0.06) 4px 8px); }
+
 /* Asistencia ------------------------------------------------------------ */
 .attendance-row { display: grid; grid-template-columns: 1fr; gap: 0.4rem; padding: 0.65rem 1rem !important; }
 @media (min-width: 560px) { .attendance-row { grid-template-columns: 1fr auto; align-items: center; } }

@@ -37,6 +37,16 @@ export function matchOutcome(goalsFor: number | null, goalsAgainst: number | nul
   return goalsFor > goalsAgainst ? 'victoria' : goalsFor < goalsAgainst ? 'derrota' : 'empate'
 }
 
+// Etiquetas de la biblioteca de ejercicios (mismo orden que EXERCISE_TAGS)
+export const EXERCISE_TAG_LABELS: Record<string, { label: string; icon: string }> = {
+  calentamiento: { label: 'Calentamiento', icon: '🔥' },
+  tecnica: { label: 'Técnica', icon: '🎯' },
+  tactica: { label: 'Táctica', icon: '🧠' },
+  fisico: { label: 'Físico', icon: '💪' },
+  juego_reducido: { label: 'Juego reducido', icon: '⚡' },
+  vuelta_calma: { label: 'Vuelta a la calma', icon: '🧘' },
+}
+
 export const NOTE_TYPE_LABELS: Record<Enums<'note_type'>, string> = {
   observacion: 'Observación',
   conversacion: 'Conversación',

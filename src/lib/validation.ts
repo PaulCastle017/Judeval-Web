@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ALLOWED_VIDEO_URL } from './video'
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 const date = z.string().regex(ISO_DATE, 'Fecha no válida')
@@ -70,11 +71,40 @@ const optionalInt = (min: number, max: number, message: string) =>
     .union([z.literal(''), z.null(), z.coerce.number().int(message).min(min, message).max(max, message)])
     .transform((v) => (v === '' || v === null ? null : v))
 
+export const EXERCISE_TAGS = ['calentamiento', 'tecnica', 'tactica', 'fisico', 'juego_reducido', 'vuelta_calma'] as const
+export type ExerciseTag = (typeof EXERCISE_TAGS)[number]
+
+// Ejercicio dentro de un entrenamiento. Si viene de la biblioteca, guarda su id y una
+// copia del título, enlace, descripción y etiquetas del momento en que se añadió.
 export const exerciseSchema = z.object({
   name: z.string().trim().min(1, 'Pon nombre al ejercicio').max(120, 'Máximo 120 caracteres'),
   minutes: optionalInt(1, 300, 'Minutos no válidos'),
   notes: optionalText(300),
+  exercise_id: z.uuid().nullable().optional(),
+  url: z.string().max(500).optional(),
+  description: z.string().max(4000).optional(),
+  tags: z.array(z.enum(EXERCISE_TAGS)).optional(),
 })
+
+// Ejercicio de la biblioteca: enlace (YouTube / Instagram) o texto explicativo (o ambos)
+export const libraryExerciseSchema = z
+  .object({
+    title: z.string().trim().min(1, 'Ponle un título').max(120, 'Máximo 120 caracteres'),
+    url: z
+      .string()
+      .trim()
+      .transform((v) => v || null)
+      .pipe(
+        z
+          .string()
+          .regex(ALLOWED_VIDEO_URL, 'Solo enlaces https de YouTube o Instagram')
+          .nullable(),
+      ),
+    description: optionalText(4000),
+    tags: z.array(z.enum(EXERCISE_TAGS)),
+    default_minutes: optionalInt(1, 300, 'Minutos no válidos'),
+  })
+  .refine((v) => v.url || v.description, { path: ['description'], message: 'Añade un enlace o explica el ejercicio' })
 
 export const trainingSchema = z.object({
   category_id: z.uuid('Elige una categoría'),

@@ -95,16 +95,36 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"match_players": {
+                },"exercises": {
                   Row: {
-                    "comment": string,"match_id": string,"player_id": string,"recorded_by": string | null,"status": Database["public"]['Enums']["attendance_status"] | null,"updated_at": string
+                    "created_at": string,"created_by": string | null,"default_minutes": number | null,"description": string,"id": string,"sport": Database["public"]['Enums']["sport_type"],"tags": (string)[],"title": string,"updated_at": string,"url": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "comment"?: string,"match_id": string,"player_id": string,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["attendance_status"] | null,"updated_at"?: string
+                    "created_at"?: string,"created_by"?: string | null,"default_minutes"?: number | null,"description"?: string,"id"?: string,"sport": Database["public"]['Enums']["sport_type"],"tags"?: (string)[],"title": string,"updated_at"?: string,"url"?: string | null
                   }
                   Update: {
-                    "comment"?: string,"match_id"?: string,"player_id"?: string,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["attendance_status"] | null,"updated_at"?: string
+                    "created_at"?: string,"created_by"?: string | null,"default_minutes"?: number | null,"description"?: string,"id"?: string,"sport"?: Database["public"]['Enums']["sport_type"],"tags"?: (string)[],"title"?: string,"updated_at"?: string,"url"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "exercises_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"match_players": {
+                  Row: {
+                    "comment": string,"lineup_slot": string | null,"match_id": string,"player_id": string,"recorded_by": string | null,"status": Database["public"]['Enums']["attendance_status"] | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "comment"?: string,"lineup_slot"?: string | null,"match_id": string,"player_id": string,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["attendance_status"] | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "comment"?: string,"lineup_slot"?: string | null,"match_id"?: string,"player_id"?: string,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["attendance_status"] | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -129,14 +149,14 @@ isOneToOne: false
                   ]
                 },"matches": {
                   Row: {
-                    "category_id": string,"competition": string,"created_at": string,"created_by": string | null,"goals_against": number | null,"goals_for": number | null,"id": string,"location": string,"match_date": string,"notes": string,"opponent": string,"start_time": string | null,"updated_at": string,"venue": Database["public"]['Enums']["match_venue"]
+                    "category_id": string,"competition": string,"created_at": string,"created_by": string | null,"goals_against": number | null,"goals_for": number | null,"id": string,"location": string,"match_date": string,"notes": string,"opponent": string,"sets": Json | null,"start_time": string | null,"updated_at": string,"venue": Database["public"]['Enums']["match_venue"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "category_id": string,"competition"?: string,"created_at"?: string,"created_by"?: string | null,"goals_against"?: number | null,"goals_for"?: number | null,"id"?: string,"location"?: string,"match_date": string,"notes"?: string,"opponent": string,"start_time"?: string | null,"updated_at"?: string,"venue"?: Database["public"]['Enums']["match_venue"]
+                    "category_id": string,"competition"?: string,"created_at"?: string,"created_by"?: string | null,"goals_against"?: number | null,"goals_for"?: number | null,"id"?: string,"location"?: string,"match_date": string,"notes"?: string,"opponent": string,"sets"?: Json | null,"start_time"?: string | null,"updated_at"?: string,"venue"?: Database["public"]['Enums']["match_venue"]
                   }
                   Update: {
-                    "category_id"?: string,"competition"?: string,"created_at"?: string,"created_by"?: string | null,"goals_against"?: number | null,"goals_for"?: number | null,"id"?: string,"location"?: string,"match_date"?: string,"notes"?: string,"opponent"?: string,"start_time"?: string | null,"updated_at"?: string,"venue"?: Database["public"]['Enums']["match_venue"]
+                    "category_id"?: string,"competition"?: string,"created_at"?: string,"created_by"?: string | null,"goals_against"?: number | null,"goals_for"?: number | null,"id"?: string,"location"?: string,"match_date"?: string,"notes"?: string,"opponent"?: string,"sets"?: Json | null,"start_time"?: string | null,"updated_at"?: string,"venue"?: Database["public"]['Enums']["match_venue"]
                   }
                   Relationships: [
                     {
@@ -405,11 +425,17 @@ isOneToOne: false
 "save_review":
 { Args: { "p_body": string,"p_id": string,"p_player_ids": (string)[],"p_review_date": string,"p_sport": Database["public"]['Enums']["sport_type"] }; Returns: string
                            },
+"set_match_lineup":
+{ Args: { "p_match_id": string,"p_slots": Json }; Returns: undefined
+                           },
 "set_match_squad":
 { Args: { "p_match_id": string,"p_player_ids": (string)[] }; Returns: undefined
                            },
 "set_note_follow_up_done":
 { Args: { "p_done"?: boolean,"p_note_id": string }; Returns: undefined
+                           },
+"volley_sets_valid":
+{ Args: { "p_sets": Json }; Returns: boolean
                            }
           }
           Enums: {

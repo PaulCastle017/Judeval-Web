@@ -4,6 +4,7 @@ import {
   changePasswordSchema,
   commitmentSchema,
   matchResultSchema,
+  libraryExerciseSchema,
   matchSchema,
   newUserSchema,
   noteSchema,
@@ -176,5 +177,26 @@ describe('partidos', () => {
     expect(matchOutcome(2, 2)).toBe('empate')
     expect(matchOutcome(0, 1)).toBe('derrota')
     expect(matchOutcome(null, null)).toBeNull()
+  })
+})
+
+describe('biblioteca de ejercicios', () => {
+  const base = { title: 'Rondo 4x2', url: '', description: '', tags: [], default_minutes: '' }
+  it('exige enlace o explicación', () => {
+    const r = parseForm(libraryExerciseSchema, base)
+    expect(!r.ok && r.errors.description).toBeTruthy()
+    expect(parseForm(libraryExerciseSchema, { ...base, description: 'Dos toques máximo' }).ok).toBe(true)
+    expect(parseForm(libraryExerciseSchema, { ...base, url: 'https://youtu.be/dQw4w9WgXcQ' }).ok).toBe(true)
+  })
+  it('solo admite enlaces https de YouTube o Instagram y etiquetas conocidas', () => {
+    expect(parseForm(libraryExerciseSchema, { ...base, url: 'https://vimeo.com/1' }).ok).toBe(false)
+    expect(parseForm(libraryExerciseSchema, { ...base, url: 'http://youtube.com/watch?v=dQw4w9WgXcQ' }).ok).toBe(false)
+    expect(parseForm(libraryExerciseSchema, { ...base, description: 'x', tags: ['inventada'] }).ok).toBe(false)
+    const r = parseForm(libraryExerciseSchema, { ...base, description: 'x', tags: ['tactica'], default_minutes: '15' })
+    expect(r.ok && r.data.default_minutes).toBe(15)
+  })
+  it('un ejercicio de entrenamiento conserva la copia de la biblioteca', () => {
+    const item = { name: 'Rondo', minutes: 10, notes: '', exercise_id: CAT, url: 'https://youtu.be/dQw4w9WgXcQ', description: 'x', tags: ['tecnica'] }
+    expect(parseExercises([item])).toEqual([item])
   })
 })

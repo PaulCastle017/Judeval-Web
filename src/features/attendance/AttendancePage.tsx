@@ -8,6 +8,7 @@ import { endTime, formatLongDate, formatTime, isoWeekday, playerName, SPORT_EMOJ
 import { parseExercises, parseForm, sessionSchema } from '../../lib/validation'
 import { useSport } from '../../sport/SportProvider'
 import { useLabels, useWords } from '../../i18n/useWords'
+import { ExerciseThumb } from '../trainings/ExerciseCard'
 import { useAuth } from '../../auth/AuthProvider'
 import { ConfirmButton, EmptyState, ErrorMessage, Field, PageHeader, Spinner, SuccessMessage } from '../../components/ui'
 import type { Enums, Tables } from '../../types/database'
@@ -147,8 +148,15 @@ function TrainingPlan({ session }: { session: Tables<'training_sessions'> }) {
       {exercises.length > 0 && (
         <ol className="exercise-summary">
           {exercises.map((ex, i) => (
-            <li key={i}>
-              <strong>{ex.name}</strong>
+            <li key={i} className="exercise-summary-row">
+              <ExerciseThumb url={ex.url} size="sm" />
+              {ex.url ? (
+                <a href={ex.url} target="_blank" rel="noopener noreferrer">
+                  <strong>{ex.name}</strong>
+                </a>
+              ) : (
+                <strong>{ex.name}</strong>
+              )}
               {ex.minutes && <span className="muted"> · {ex.minutes} min</span>}
               {ex.notes && <span className="muted small block">{ex.notes}</span>}
             </li>

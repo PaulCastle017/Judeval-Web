@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(72);
+select plan(99);
 
 -- Usuarios de prueba ---------------------------------------------------------------
 insert into auth.users (id, email, aud, role) values
@@ -213,6 +213,69 @@ select is((select created_by from poll_reminders where slot_date = '2026-11-03')
 select lives_ok($$select public.set_match_squad('00000000-0000-0000-0000-0000000000e1', '{}')$$, 'coach: vacía la convocatoria');
 select is((select count(*)::int from match_players where match_id = '00000000-0000-0000-0000-0000000000e1'), 0, 'la convocatoria queda vacía');
 reset role;
+
+-- RESULTADO POR SETS, ALINEACIÓN Y BIBLIOTECA ------------------------------------
+insert into matches (id, category_id, match_date, opponent) values
+  ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-00000000ca72', '2030-02-02', 'Rival Voley');
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
+set local role authenticated;
+select lives_ok($$update public.matches set sets = '[{"for":25,"against":20},{"for":20,"against":25},{"for":25,"against":22},{"for":25,"against":19}]' where id = '00000000-0000-0000-0000-0000000000e2'$$, 'voley: guarda un 3-1 por sets');
+select is((select goals_for || '-' || goals_against from matches where id = '00000000-0000-0000-0000-0000000000e2'), '3-1', 'voley: los sets ganados se calculan solos');
+select throws_ok($$update public.matches set sets = '[{"for":25,"against":20},{"for":25,"against":20}]' where id = '00000000-0000-0000-0000-0000000000e2'$$,
+  '23514', null, 'voley: menos de 3 sets no vale');
+select throws_ok($$update public.matches set sets = '[{"for":25,"against":25},{"for":25,"against":20},{"for":25,"against":20}]' where id = '00000000-0000-0000-0000-0000000000e2'$$,
+  '23514', null, 'voley: un set no puede acabar empatado');
+select throws_ok($$update public.matches set sets = '[{"for":25,"against":20},{"for":25,"against":20},{"for":25,"against":20},{"for":25,"against":20}]' where id = '00000000-0000-0000-0000-0000000000e2'$$,
+  '23514', null, 'voley: no hay sets después de un 3-0');
+select lives_ok($$update public.matches set sets = '[{"for":25,"against":20},{"for":20,"against":25},{"for":25,"against":22},{"for":19,"against":25},{"for":15,"against":12}]' where id = '00000000-0000-0000-0000-0000000000e2'$$,
+  'voley: guarda un 3-2 a cinco sets');
+select throws_ok($$insert into public.matches (category_id, match_date, opponent, goals_for, goals_against)
+  values ('00000000-0000-0000-0000-00000000ca72', '2030-02-03', 'X', 2, 0)$$, '23514', null, 'voley: no se acepta marcador sin sets');
+select throws_ok($$update public.matches set sets = '[{"for":25,"against":20},{"for":20,"against":25},{"for":25,"against":22},{"for":25,"against":19}]' where id = '00000000-0000-0000-0000-0000000000e1'$$, '23514', null, 'fútbol sala: no se aceptan sets');
+
+select lives_ok($$select public.set_match_squad('00000000-0000-0000-0000-0000000000e1', array['00000000-0000-0000-0000-0000000000f1']::uuid[])$$, 'convoca para la alineación');
+select lives_ok($$select public.set_match_lineup('00000000-0000-0000-0000-0000000000e1', '{"pivot":"00000000-0000-0000-0000-0000000000f1"}')$$, 'coach: guarda la alineación');
+select is((select lineup_slot from match_players where match_id = '00000000-0000-0000-0000-0000000000e1' and player_id = '00000000-0000-0000-0000-0000000000f1'), 'pivot', 'el puesto queda guardado');
+select throws_ok($$select public.set_match_lineup('00000000-0000-0000-0000-0000000000e1', '{"p1":"00000000-0000-0000-0000-0000000000f1"}')$$, '23514', null, 'no se usan puestos de voley en fútbol sala');
+select throws_ok($$select public.set_match_lineup('00000000-0000-0000-0000-0000000000e1', '{"pivot":"00000000-0000-0000-0000-0000000000f1","cierre":"00000000-0000-0000-0000-0000000000f1"}')$$, '23505', null, 'una persona no ocupa dos puestos');
+select throws_ok($$select public.set_match_lineup('00000000-0000-0000-0000-0000000000e1', '{"pivot":"00000000-0000-0000-0000-0000000000f3"}')$$, '23503', null, 'solo se alinea a personas convocadas');
+select is((select lineup_slot from match_players where match_id = '00000000-0000-0000-0000-0000000000e1' and player_id = '00000000-0000-0000-0000-0000000000f1'), 'pivot',
+  'set_match_lineup es atómica: un error no borra la alineación anterior');
+select lives_ok($$select public.set_match_lineup('00000000-0000-0000-0000-0000000000e1', '{}')$$, 'coach: vacía la alineación');
+select is((select lineup_slot from match_players where match_id = '00000000-0000-0000-0000-0000000000e1' and player_id = '00000000-0000-0000-0000-0000000000f1'), null, 'la alineación queda vacía');
+reset role;
+
+set local role anon;
+select throws_ok('select * from public.exercises', '42501', null, 'anon no puede leer la biblioteca');
+reset role;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000d1","role":"authenticated"}', true);
+set local role authenticated;
+select is((select count(*)::int from exercises), 0, 'inactivo: no ve la biblioteca');
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
+set local role authenticated;
+select lives_ok($$insert into public.exercises (id, sport, title, url, tags)
+  values ('00000000-0000-0000-0000-0000000000b1', 'futsal', 'Rondo 4x2', 'https://youtu.be/dQw4w9WgXcQ', '{tecnica}')$$, 'coach: guarda un ejercicio con vídeo');
+select throws_ok($$insert into public.exercises (sport, title) values ('futsal', 'Vacío')$$, '23514', null, 'un ejercicio necesita enlace o explicación');
+select throws_ok($$insert into public.exercises (sport, title, url) values ('futsal', 'X', 'https://vimeo.com/1')$$, '23514', null, 'solo enlaces de YouTube o Instagram');
+select throws_ok($$insert into public.exercises (sport, title, description, tags) values ('futsal', 'X', 'y', '{inventada}')$$, '23514', null, 'solo etiquetas conocidas');
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c2","role":"authenticated"}', true);
+set local role authenticated;
+update exercises set title = 'Pirateado' where id = '00000000-0000-0000-0000-0000000000b1';
+delete from exercises where id = '00000000-0000-0000-0000-0000000000b1';
+reset role;
+select is((select title from exercises where id = '00000000-0000-0000-0000-0000000000b1'), 'Rondo 4x2', 'otro coach no puede editar un ejercicio ajeno');
+select is((select count(*)::int from exercises where id = '00000000-0000-0000-0000-0000000000b1'), 1, 'otro coach no puede borrar un ejercicio ajeno');
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+set local role authenticated;
+select lives_ok($$delete from public.exercises where id = '00000000-0000-0000-0000-0000000000b1'$$, 'admin: puede borrar un ejercicio ajeno');
+reset role;
+select is((select count(*)::int from exercises where id = '00000000-0000-0000-0000-0000000000b1'), 0, 'el ejercicio queda borrado');
 
 select * from finish();
 rollback;

@@ -33,7 +33,7 @@ const stamp = Date.now()
 const ADMIN_EMAIL = `smoke-admin-${stamp}@test.local`
 const COACH_EMAIL = `smoke-coach-${stamp}@test.local`
 const PASS = 'Prueba1234'
-const created = { users: [], playerId: null, reviewId: null, commitmentId: null, matchId: null }
+const created = { users: [], playerId: null, reviewId: null, commitmentId: null, matchId: null, voleyMatchId: null, exerciseId: null }
 
 async function callAdminFn(client, body) {
   const { data, error } = await client.functions.invoke('admin-users', { body })
@@ -84,15 +84,23 @@ try {
   console.log('3. Operaciones del entrenador')
   const { data: cats, error: catErr } = await coach.from('categories').select('id, name, sport').eq('sport', 'futsal').order('sort_order')
   check(!catErr && cats.length >= 2, `lee categorías de fútbol sala (${cats?.length})`, catErr)
-  const { data: voleyCats } = await coach.from('categories').select('id').eq('sport', 'voley')
+  const { data: voleyCats } = await coach.from('categories').select('id').eq('sport', 'voley').order('sort_order')
   check(voleyCats?.length >= 2, `existen categorías de voley (${voleyCats?.length})`)
   const { count: seeded } = await coach.from('players').select('*', { count: 'exact', head: true })
   check(seeded >= 24, `lee jugadores del seed (${seeded})`)
-  const { count: voleyPlayers } = await coach
-    .from('players')
-    .select('id, category:categories!inner(sport)', { count: 'exact', head: true })
-    .eq('category.sport', 'voley')
-  check(voleyPlayers === 0, `filtro por deporte: voley no incluye jugadores de fútbol (${voleyPlayers})`)
+  const countBySport = async (sport) =>
+    (
+      await coach
+        .from('players')
+        .select('id, category:categories!inner(sport)', { count: 'exact', head: true })
+        .eq('category.sport', sport)
+    ).count
+  const futsalPlayers = await countBySport('futsal')
+  const voleyPlayers = await countBySport('voley')
+  check(
+    futsalPlayers >= 24 && futsalPlayers + voleyPlayers === seeded,
+    `filtro por deporte: ${futsalPlayers} de fútbol sala + ${voleyPlayers} de voley = ${seeded}, sin solaparse`,
+  )
 
   const { data: player, error: pErr } = await coach
     .from('players')
@@ -211,6 +219,40 @@ try {
   const { data: undone, error: undoErr } = await coach.from('poll_reminders').delete().eq('slot_date', '2000-01-02').select()
   check(!undoErr && undone?.length === 1, 'deshace la marca de encuesta', undoErr)
 
+  const { error: luErr } = await coach.rpc('set_match_lineup', { p_match_id: match.id, p_slots: { portero: player.id } })
+  check(!luErr, 'alineación de fútbol sala (RPC set_match_lineup)', luErr)
+  const { data: slotRow } = await coach.from('match_players').select('lineup_slot').eq('match_id', match.id).eq('player_id', player.id).single()
+  check(slotRow?.lineup_slot === 'portero', 'el puesto en la alineación queda guardado')
+
+  const { data: vMatch, error: vmErr } = await coach
+    .from('matches')
+    .insert({ category_id: voleyCats[0].id, match_date: '2000-01-09', opponent: 'CV Smoke' })
+    .select()
+    .single()
+  check(!vmErr, 'crea un partido de voley', vmErr)
+  created.voleyMatchId = vMatch?.id
+  const sets31 = [{ for: 25, against: 20 }, { for: 20, against: 25 }, { for: 25, against: 22 }, { for: 25, against: 19 }]
+  const { data: vSet, error: vsErr } = await coach.from('matches').update({ sets: sets31 }).eq('id', vMatch.id).select().single()
+  check(!vsErr && vSet?.goals_for === 3 && vSet?.goals_against === 1, 'voley: resultado por sets y 3-1 calculado en el servidor', vsErr ?? vSet)
+  const { error: vBad } = await coach.from('matches').update({ sets: sets31.slice(0, 2) }).eq('id', vMatch.id)
+  check(!!vBad, 'voley: rechaza un resultado con menos de 3 sets')
+
+  const { data: ex, error: exErr } = await coach
+    .from('exercises')
+    .insert({ sport: 'futsal', title: 'Rondo smoke', url: 'https://youtu.be/dQw4w9WgXcQ', tags: ['tecnica'], default_minutes: 10 })
+    .select()
+    .single()
+  check(!exErr, 'biblioteca: guarda un ejercicio con vídeo', exErr)
+  created.exerciseId = ex?.id
+  const { error: trExErr } = await coach
+    .from('training_sessions')
+    .update({ exercises: [{ name: ex.title, minutes: 10, notes: '', exercise_id: ex.id, url: ex.url, tags: ex.tags }] })
+    .eq('id', training.id)
+  check(!trExErr, 'usa el ejercicio de la biblioteca en un entrenamiento', trExErr)
+  await coach.from('exercises').update({ title: 'Rondo renombrado' }).eq('id', ex.id)
+  const { data: trAfter } = await coach.from('training_sessions').select('exercises').eq('id', training.id).single()
+  check(trAfter?.exercises?.[0]?.name === 'Rondo smoke', 'editar la biblioteca no altera el entrenamiento ya preparado')
+
   console.log('4. Permisos negativos')
   const { error: roleErr } = await coach.from('profiles').update({ role: 'admin' }).eq('id', coachId)
   check(!!roleErr, 'el entrenador NO puede cambiarse el rol')
@@ -242,6 +284,8 @@ try {
   if (created.reviewId) await service.from('staff_reviews').delete().eq('id', created.reviewId)
   if (created.commitmentId) await service.from('team_commitments').delete().eq('id', created.commitmentId)
   if (created.matchId) await service.from('matches').delete().eq('id', created.matchId)
+  if (created.voleyMatchId) await service.from('matches').delete().eq('id', created.voleyMatchId)
+  if (created.exerciseId) await service.from('exercises').delete().eq('id', created.exerciseId)
   await service.from('poll_reminders').delete().eq('slot_date', '2000-01-02')
   await service.from('training_sessions').delete().eq('session_date', '2030-01-07')
   if (created.playerId) await service.from('players').delete().eq('id', created.playerId)
