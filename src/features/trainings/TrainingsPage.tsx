@@ -1,11 +1,11 @@
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { unwrap, useCategories } from '../../lib/queries'
 import { endTime, formatTime, relativeDayLabel, SPORT_EMOJI, todayISO } from '../../lib/format'
 import { parseExercises } from '../../lib/validation'
 import { useSport } from '../../sport/SportProvider'
-import { Badge, EmptyState, ErrorMessage, PageHeader, Spinner } from '../../components/ui'
+import { Badge, EmptyState, ErrorMessage, PageHeader, Spinner, SuccessMessage } from '../../components/ui'
 import type { Json, Tables } from '../../types/database'
 import { ExerciseLibrary } from './ExerciseLibrary'
 import { ExerciseThumb } from './ExerciseCard'
@@ -19,13 +19,17 @@ type TrainingRow = {
   exercises: Json
   notes: string
   attendance: { count: number }[]
+  finished_at: string | null
+  staff_reviews: { id: string }[]
 }
 
-const SELECT = 'id, category_id, session_date, start_time, duration_minutes, exercises, notes, attendance(count)'
+const SELECT = 'id, category_id, session_date, start_time, duration_minutes, exercises, notes, finished_at, attendance(count), staff_reviews(id)'
 
 export function TrainingsPage() {
   const sport = useSport()
   const [params, setParams] = useSearchParams()
+  // Aviso tras crear un entrenamiento (desde el asistente o la pantalla única)
+  const created = (useLocation().state as { createdTraining?: { id: string; date: string; categoryId: string } } | null)?.createdTraining
   const categories = useCategories(sport)
   const requested = params.get('categoria') ?? ''
   const categoryFilter = categories.data?.some((c) => c.id === requested) ? requested : ''
@@ -92,6 +96,21 @@ export function TrainingsPage() {
           </Link>
         }
       />
+
+      {created && (
+        <SuccessMessage>
+          <span>Entrenamiento creado ✓</span>
+          {created.date === todayISO() ? (
+            <Link to={`/asistencia?categoria=${created.categoryId}&fecha=${created.date}`} className="btn btn-primary btn-small">
+              ✅ Pasar lista ahora
+            </Link>
+          ) : (
+            <Link to={`/entrenamientos/${created.id}`} className="btn btn-small">
+              Ver entrenamiento
+            </Link>
+          )}
+        </SuccessMessage>
+      )}
 
       <div className="tabs" role="tablist">
         {TABS.map((t) => (
@@ -168,7 +187,10 @@ function TrainingCard({ training: t, categories, today }: { training: TrainingRo
     <article className="card training-card">
       <header className="training-card-head">
         <span className="training-day">{relativeDayLabel(t.session_date, today)}</span>
-        {listTaken && <Badge tone="success">Lista pasada ✓</Badge>}
+        <span className="row-tight">
+          {t.finished_at ? <Badge tone="success">Finalizado ✓</Badge> : listTaken && <Badge tone="success">Lista pasada ✓</Badge>}
+          {t.finished_at && t.staff_reviews.length === 0 && <Badge tone="warn">Sin revisión</Badge>}
+        </span>
       </header>
       <p className="training-meta">
         <strong>{category?.name ?? '—'}</strong>

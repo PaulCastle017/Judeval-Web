@@ -163,6 +163,16 @@ export function relativeDayLabel(iso: string, today = todayISO()): string {
   return formatLongDate(iso)
 }
 
+const shortDayFmt = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric' })
+
+/** Etiqueta corta para chips de fecha: «Hoy», «Mañana» o «Lun 2». */
+export function shortDayLabel(iso: string, today = todayISO()): string {
+  if (iso === today) return 'Hoy'
+  if (iso === addDays(today, 1)) return 'Mañana'
+  const s = shortDayFmt.format(parseISODate(iso)).replace('.', '')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 /** Días transcurridos entre dos fechas ISO. */
 export function daysBetween(fromIso: string, toIso: string): number {
   return Math.round((parseISODate(toIso).getTime() - parseISODate(fromIso).getTime()) / 86_400_000)

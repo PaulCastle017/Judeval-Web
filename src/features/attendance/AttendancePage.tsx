@@ -9,6 +9,7 @@ import { parseExercises, parseForm, sessionSchema } from '../../lib/validation'
 import { useSport } from '../../sport/SportProvider'
 import { useLabels, useWords } from '../../i18n/useWords'
 import { ExerciseThumb } from '../trainings/ExerciseCard'
+import { FinishPrompt } from '../reviews/FinishPrompt'
 import { useAuth } from '../../auth/AuthProvider'
 import { ConfirmButton, EmptyState, ErrorMessage, Field, PageHeader, Spinner, SuccessMessage } from '../../components/ui'
 import type { Enums, Tables } from '../../types/database'
@@ -123,6 +124,14 @@ function SessionLoader({ category, date }: { category: Tables<'categories'>; dat
       savedOk={savedKey === sheetKey}
       onSaved={() => setSavedKey(sheetKey)}
     />
+      {session.data && (
+        <FinishPrompt
+          kind="training"
+          eventId={session.data.id}
+          finishedAt={session.data.finished_at}
+          incomplete={session.data.attendance.length === 0 ? 'Aún no has guardado la lista.' : null}
+        />
+      )}
     </>
   )
 }

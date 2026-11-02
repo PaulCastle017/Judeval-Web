@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -15,6 +15,11 @@ import type { Enums, Tables, TablesUpdate } from '../../types/database'
 import { parseSetRows, parseSets, type SetRow } from '../../lib/volley'
 import { VolleySetsEditor } from './VolleySetsEditor'
 import { Lineup } from './Lineup'
+import { NewMatchWizard } from './NewMatchWizard'
+import { rememberMatch } from '../../lib/defaults'
+import { useIsMobileOnMount } from '../../components/mobile/useIsMobile'
+import { FinishPrompt } from '../reviews/FinishPrompt'
+import { EventReviewLink } from '../reviews/EventReviewLink'
 
 type MatchPlayer = Pick<Tables<'match_players'>, 'player_id' | 'status' | 'comment' | 'lineup_slot'>
 type MatchWithSquad = Tables<'matches'> & { match_players: MatchPlayer[] }
@@ -39,6 +44,9 @@ export function MatchDetailPage() {
   const { id = '' } = useParams()
   const isNew = id === 'nuevo'
   const sport = useSport()
+  const isMobile = useIsMobileOnMount()
+  const location = useLocation()
+  const justCreated = Boolean((location.state as { created?: boolean } | null)?.created)
   const categories = useCategories()
   const match = useQuery({
     enabled: !isNew,
@@ -57,12 +65,17 @@ export function MatchDetailPage() {
   const matchSport = (m && categories.data.find((c) => c.id === m.category_id)?.sport) || sport
   const sportCategories = categories.data.filter((c) => c.sport === matchSport)
 
+  // Alta en el móvil: asistente de 2 pasos
+  if (isNew && isMobile) return <NewMatchWizard categories={sportCategories} />
+
   return (
     <div className="stack">
       <Link to="/partidos" className="back-link">
         ← Partidos
       </Link>
       <MatchForm key={m?.id ?? 'nuevo'} match={m} categories={sportCategories} />
+      {m && justCreated && <NextStepHint />}
+      {m && <EventReviewLink kind="match" eventId={m.id} />}
       {/* Claves estables: recargar tras guardar no debe remontar (se perdería el aviso de guardado).
           El día de partido solo se reinicia si cambia la convocatoria. */}
       {m && <MatchSquad key={`squad-${m.id}`} match={m} sport={matchSport} />}
@@ -102,11 +115,14 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
       if (match) return unwrap(await supabase.from('matches').update(values).eq('id', match.id).select('id').single())
       return unwrap(await supabase.from('matches').insert(values).select('id').single())
     },
-    onSuccess: async (row) => {
+    onSuccess: async (row, values) => {
       setSaved(true)
       await queryClient.invalidateQueries({ queryKey: ['matches'] })
       // Tras crearlo, se abre su ficha para poder hacer la convocatoria
-      if (!match) navigate(`/partidos/${row.id}`, { replace: true, state: { justSaved: true } })
+      if (!match) {
+        rememberMatch(values)
+        navigate(`/partidos/${row.id}`, { replace: true, state: { justSaved: true, created: true } })
+      }
     },
   })
   const remove = useMutation({
@@ -249,7 +265,7 @@ function MatchSquad({ match, sport }: { match: MatchWithSquad; sport: Enums<'spo
   const dirty = selected.length !== original.size || selected.some((id) => !original.has(id))
 
   return (
-    <section className="card stack-sm">
+    <section id="convocatoria" className="card stack-sm">
       <div className="card-head">
         <h2>
           📋 Convocatoria · {selected.length} {selected.length === 1 ? w.calledUp : w.calledUpPl}
@@ -471,6 +487,24 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
           {save.isPending ? 'Guardando…' : 'Guardar asistencia y resultado'}
         </button>
       </div>
+      <FinishPrompt
+        kind="match"
+        eventId={match.id}
+        finishedAt={match.finished_at}
+        incomplete={match.goals_for === null ? 'El partido aún no tiene resultado.' : null}
+      />
     </section>
+  )
+}
+
+/** Tras crear un partido: lleva a la convocatoria y explica el siguiente paso. */
+function NextStepHint() {
+  useEffect(() => {
+    document.getElementById('convocatoria')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+  return (
+    <p className="alert alert-info" role="status">
+      ✅ Partido creado. Siguiente: convoca y coloca la alineación.
+    </p>
   )
 }

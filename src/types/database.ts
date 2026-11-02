@@ -149,14 +149,14 @@ isOneToOne: false
                   ]
                 },"matches": {
                   Row: {
-                    "category_id": string,"competition": string,"created_at": string,"created_by": string | null,"goals_against": number | null,"goals_for": number | null,"id": string,"location": string,"match_date": string,"notes": string,"opponent": string,"sets": Json | null,"start_time": string | null,"updated_at": string,"venue": Database["public"]['Enums']["match_venue"]
+                    "category_id": string,"competition": string,"created_at": string,"created_by": string | null,"finished_at": string | null,"finished_by": string | null,"goals_against": number | null,"goals_for": number | null,"id": string,"location": string,"match_date": string,"notes": string,"opponent": string,"sets": Json | null,"start_time": string | null,"updated_at": string,"venue": Database["public"]['Enums']["match_venue"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "category_id": string,"competition"?: string,"created_at"?: string,"created_by"?: string | null,"goals_against"?: number | null,"goals_for"?: number | null,"id"?: string,"location"?: string,"match_date": string,"notes"?: string,"opponent": string,"sets"?: Json | null,"start_time"?: string | null,"updated_at"?: string,"venue"?: Database["public"]['Enums']["match_venue"]
+                    "category_id": string,"competition"?: string,"created_at"?: string,"created_by"?: string | null,"finished_at"?: string | null,"finished_by"?: string | null,"goals_against"?: number | null,"goals_for"?: number | null,"id"?: string,"location"?: string,"match_date": string,"notes"?: string,"opponent": string,"sets"?: Json | null,"start_time"?: string | null,"updated_at"?: string,"venue"?: Database["public"]['Enums']["match_venue"]
                   }
                   Update: {
-                    "category_id"?: string,"competition"?: string,"created_at"?: string,"created_by"?: string | null,"goals_against"?: number | null,"goals_for"?: number | null,"id"?: string,"location"?: string,"match_date"?: string,"notes"?: string,"opponent"?: string,"sets"?: Json | null,"start_time"?: string | null,"updated_at"?: string,"venue"?: Database["public"]['Enums']["match_venue"]
+                    "category_id"?: string,"competition"?: string,"created_at"?: string,"created_by"?: string | null,"finished_at"?: string | null,"finished_by"?: string | null,"goals_against"?: number | null,"goals_for"?: number | null,"id"?: string,"location"?: string,"match_date"?: string,"notes"?: string,"opponent"?: string,"sets"?: Json | null,"start_time"?: string | null,"updated_at"?: string,"venue"?: Database["public"]['Enums']["match_venue"]
                   }
                   Relationships: [
                     {
@@ -168,6 +168,12 @@ isOneToOne: false
     },{
       foreignKeyName: "matches_created_by_fkey"
       columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "matches_finished_by_fkey"
+      columns: ["finished_by"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -331,14 +337,14 @@ isOneToOne: false
                   ]
                 },"staff_reviews": {
                   Row: {
-                    "body": string,"created_at": string,"created_by": string | null,"id": string,"review_date": string,"sport": Database["public"]['Enums']["sport_type"],"updated_at": string
+                    "body": string,"created_at": string,"created_by": string | null,"id": string,"match_id": string | null,"review_date": string,"sport": Database["public"]['Enums']["sport_type"],"training_session_id": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "body"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"review_date"?: string,"sport"?: Database["public"]['Enums']["sport_type"],"updated_at"?: string
+                    "body"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"match_id"?: string | null,"review_date"?: string,"sport"?: Database["public"]['Enums']["sport_type"],"training_session_id"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "body"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"review_date"?: string,"sport"?: Database["public"]['Enums']["sport_type"],"updated_at"?: string
+                    "body"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"match_id"?: string | null,"review_date"?: string,"sport"?: Database["public"]['Enums']["sport_type"],"training_session_id"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -346,6 +352,18 @@ isOneToOne: false
       columns: ["created_by"]
 isOneToOne: false
       referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "staff_reviews_match_id_fkey"
+      columns: ["match_id"]
+isOneToOne: false
+      referencedRelation: "matches"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "staff_reviews_training_session_id_fkey"
+      columns: ["training_session_id"]
+isOneToOne: false
+      referencedRelation: "training_sessions"
       referencedColumns: ["id"]
     }
                   ]
@@ -371,14 +389,14 @@ isOneToOne: false
                   ]
                 },"training_sessions": {
                   Row: {
-                    "category_id": string,"closing_question": string,"closing_summary": string,"created_at": string,"created_by": string | null,"duration_minutes": number | null,"exercises": NonNullable<Json>,"id": string,"notes": string,"session_date": string,"start_time": string | null,"updated_at": string
+                    "category_id": string,"closing_question": string,"closing_summary": string,"created_at": string,"created_by": string | null,"duration_minutes": number | null,"exercises": NonNullable<Json>,"finished_at": string | null,"finished_by": string | null,"id": string,"notes": string,"session_date": string,"start_time": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "category_id": string,"closing_question"?: string,"closing_summary"?: string,"created_at"?: string,"created_by"?: string | null,"duration_minutes"?: number | null,"exercises"?: NonNullable<Json>,"id"?: string,"notes"?: string,"session_date": string,"start_time"?: string | null,"updated_at"?: string
+                    "category_id": string,"closing_question"?: string,"closing_summary"?: string,"created_at"?: string,"created_by"?: string | null,"duration_minutes"?: number | null,"exercises"?: NonNullable<Json>,"finished_at"?: string | null,"finished_by"?: string | null,"id"?: string,"notes"?: string,"session_date": string,"start_time"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "category_id"?: string,"closing_question"?: string,"closing_summary"?: string,"created_at"?: string,"created_by"?: string | null,"duration_minutes"?: number | null,"exercises"?: NonNullable<Json>,"id"?: string,"notes"?: string,"session_date"?: string,"start_time"?: string | null,"updated_at"?: string
+                    "category_id"?: string,"closing_question"?: string,"closing_summary"?: string,"created_at"?: string,"created_by"?: string | null,"duration_minutes"?: number | null,"exercises"?: NonNullable<Json>,"finished_at"?: string | null,"finished_by"?: string | null,"id"?: string,"notes"?: string,"session_date"?: string,"start_time"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -390,6 +408,12 @@ isOneToOne: false
     },{
       foreignKeyName: "training_sessions_created_by_fkey"
       columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "training_sessions_finished_by_fkey"
+      columns: ["finished_by"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -423,7 +447,7 @@ isOneToOne: false
             }[]
                            },
 "save_review":
-{ Args: { "p_body": string,"p_id": string,"p_player_ids": (string)[],"p_review_date": string,"p_sport": Database["public"]['Enums']["sport_type"] }; Returns: string
+{ Args: { "p_body": string,"p_id": string,"p_match_id"?: string,"p_player_ids": (string)[],"p_review_date": string,"p_sport": Database["public"]['Enums']["sport_type"],"p_training_session_id"?: string }; Returns: string
                            },
 "set_match_lineup":
 { Args: { "p_match_id": string,"p_slots": Json }; Returns: undefined

@@ -22,6 +22,16 @@ Basada en la guía «Acompañar, unir y hacer equipo»:
   (fútbol sala: marcador; voley: puntos de cada set, al mejor de 5). Cuentan en el historial y en la ficha.
 - **Asistencia**: pasar lista desde el móvil (presente, ausente, justificado o lesionado), pregunta de cierre e historial con porcentajes.
 - **Revisiones**: texto libre con lo que se ha visto o se quiere resaltar, con jugadores etiquetados opcionalmente.
+  Pueden ir **vinculadas a un entrenamiento o a un partido** (una por evento): muestran el chip del evento, toman su fecha y proponen
+  a los presentes (o convocados) como sugerencias para etiquetar con un toque.
+- **Finalizar**: «✅ Finalizar entrenamiento» (en Pasar lista) y «🏁 Finalizar partido» (en Día de partido) marcan el evento como
+  «Finalizado ✓» y ofrecen «Añadir revisión ahora / Más tarde». Se puede reabrir. Los finalizados de los últimos 7 días sin revisión
+  aparecen en Inicio en «📝 Pendientes de revisión».
+- **Creación pensada para el móvil** (pantallas de menos de 640 px): el entrenamiento nuevo es un asistente de 3 pasos
+  (¿Cuándo? → Ejercicios → Resumen, con borrador que sobrevive a una recarga), el partido nuevo uno de 2 pasos (Rival y cuándo → ¿Dónde?,
+  con rivales y lugares recientes) y el ejercicio una hoja a pantalla completa con «Vídeo / Texto» y «Pegar enlace». Categoría, fecha y
+  horas se proponen solas (categoría habitual del entrenador, próximo día de entreno, próximo sábado). En escritorio y al editar, todo
+  sigue en una sola pantalla. Botones y campos de al menos 44 px y letra de 16 px en los campos (sin zoom en iOS).
 - **Compromisos**: «Nuestro estilo Judeval», con estado (Objetivo Cumplido, Pendiente o No Conseguido) y filtros.
 - **Guía rápida**: resumen de la guía.
 - **Administración**: altas y bajas de entrenadores, roles, contraseñas y categorías.
@@ -244,6 +254,7 @@ Cuando una versión incluye una migración nueva en `supabase/migrations/`, **el
 | `20261031120000_sports_trainings.sql` | Deportes, entrenamientos planificados, revisiones libres, estados de compromisos | Elimina las 6 columnas antiguas de revisiones (sus textos se conservan en `body`) |
 | `20261101120000_matches_polls.sql` | Partidos (convocatoria, asistencia, resultado) y estado de la encuesta de WhatsApp | Solo añade tablas y funciones |
 | `20261102120000_sets_lineups_library.sql` | Resultado de voley por sets, alineaciones y biblioteca de ejercicios | Solo añade; los partidos de voley anteriores con marcador numérico se conservan y siguen siendo editables |
+| `20261103120000_finish_and_review_links.sql` | «Finalizar» entrenamientos y partidos, y revisiones vinculadas a un evento (una por evento) | Solo añade columnas, pero **cambia la función `save_review`**: entre la migración y el `git push` la web antigua no puede guardar revisiones. Haz los dos pasos seguidos |
 
 1. **Copia de seguridad**:
 
@@ -258,7 +269,8 @@ Cuando una versión incluye una migración nueva en `supabase/migrations/`, **el
    ```
 
    (Sin CLI: pega el contenido del archivo de la migración en **SQL Editor** y ejecútalo una vez.)
-3. **Comprobar** en Supabase → Table Editor que existe la tabla `exercises` y que `matches` tiene la columna `sets`.
+3. **Comprobar** en Supabase → Table Editor que existen las columnas nuevas (por ejemplo, `finished_at` en `training_sessions` y `matches`,
+   y `training_session_id` / `match_id` en `staff_reviews`).
 4. **Publicar la web**: `git add .`, `git commit -m "…"` y `git push`. Vercel la despliega solo en 1–2 minutos.
 
 La Edge Function `admin-users` no cambia con esta migración y no hace falta volver a desplegarla.

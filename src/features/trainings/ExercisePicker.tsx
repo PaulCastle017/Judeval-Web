@@ -8,6 +8,7 @@ import { ExerciseCard } from './ExerciseCard'
 import { ExerciseForm } from './ExerciseForm'
 import { TagFilter } from './ExerciseLibrary'
 import { filterExercises } from './exerciseFilters'
+import { useIsMobile } from '../../components/mobile/useIsMobile'
 
 /**
  * Desplegable de «+ Añadir ejercicio»: elegir de la biblioteca (con buscador y etiquetas),
@@ -25,6 +26,7 @@ export function ExercisePicker({
   onClose: () => void
 }) {
   const exercises = useExercises(sport)
+  const isMobile = useIsMobile()
   const [search, setSearch] = useState('')
   const [tag, setTag] = useState<ExerciseTag | ''>('')
   const [creating, setCreating] = useState(false)
@@ -35,26 +37,27 @@ export function ExercisePicker({
   }
 
   return (
-    <div className="card stack-sm ex-picker" role="dialog" aria-label="Añadir ejercicio">
-      <div className="row space-between">
+    <div className={`card stack-sm ex-picker${isMobile ? ' sheet' : ''}`} role="dialog" aria-label="Añadir ejercicio">
+      <div className="row space-between sheet-head">
         <strong>Añadir ejercicio</strong>
         <button type="button" className="btn btn-ghost btn-small" onClick={onClose}>
-          Cerrar
+          ✕ Cerrar
         </button>
       </div>
-      <div className="row">
-        <button type="button" className="btn btn-small" onClick={() => setCreating(true)}>
+      <div className="picker-actions">
+        <button type="button" className="btn btn-touch" onClick={() => setCreating(true)}>
           ＋ Crear ejercicio nuevo
         </button>
-        <button type="button" className="btn btn-ghost btn-small" onClick={onQuick}>
-          ⚡ Ejercicio rápido (sin guardar)
+        <button type="button" className="btn btn-ghost btn-touch" onClick={onQuick}>
+          ⚡ Rápido (sin guardar)
         </button>
       </div>
       <input
         type="search"
         placeholder="Buscar en la biblioteca…"
         value={search}
-        autoFocus
+        // En el móvil no se abre el teclado al entrar: taparía la lista
+        autoFocus={!isMobile}
         onChange={(e) => setSearch(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
       />

@@ -33,7 +33,7 @@ const stamp = Date.now()
 const ADMIN_EMAIL = `smoke-admin-${stamp}@test.local`
 const COACH_EMAIL = `smoke-coach-${stamp}@test.local`
 const PASS = 'Prueba1234'
-const created = { users: [], playerId: null, reviewId: null, commitmentId: null, matchId: null, voleyMatchId: null, exerciseId: null }
+const created = { users: [], playerId: null, reviewId: null, commitmentId: null, matchId: null, voleyMatchId: null, exerciseId: null, linkedReviewId: null }
 
 async function callAdminFn(client, body) {
   const { data, error } = await client.functions.invoke('admin-users', { body })
@@ -253,6 +253,35 @@ try {
   const { data: trAfter } = await coach.from('training_sessions').select('exercises').eq('id', training.id).single()
   check(trAfter?.exercises?.[0]?.name === 'Rondo smoke', 'editar la biblioteca no altera el entrenamiento ya preparado')
 
+  const { error: finErr } = await coach.from('training_sessions').update({ finished_at: new Date().toISOString(), finished_by: coachId }).eq('id', training.id)
+  check(!finErr, 'finaliza el entrenamiento', finErr)
+  const { data: linkedId, error: lrErr } = await coach.rpc('save_review', {
+    p_id: null,
+    p_sport: 'futsal',
+    p_review_date: '2030-01-07',
+    p_body: 'Revisión al finalizar',
+    p_player_ids: [player.id],
+    p_training_session_id: training.id,
+  })
+  check(!lrErr && linkedId, 'crea la revisión vinculada al entrenamiento', lrErr)
+  const { data: viaEvent } = await coach.from('training_sessions').select('staff_reviews(id)').eq('id', training.id).single()
+  check(viaEvent?.staff_reviews?.[0]?.id === linkedId, 'el entrenamiento enlaza con su revisión')
+  const { error: dupReviewErr } = await coach.rpc('save_review', {
+    p_id: null,
+    p_sport: 'futsal',
+    p_review_date: '2030-01-07',
+    p_body: 'Otra',
+    p_player_ids: [],
+    p_training_session_id: training.id,
+  })
+  check(dupReviewErr?.code === '23505', 'una sola revisión por entrenamiento (23505)', dupReviewErr)
+  const { error: reopenErr } = await coach.from('training_sessions').update({ finished_at: null, finished_by: null }).eq('id', training.id)
+  check(!reopenErr, 'reabre el entrenamiento', reopenErr)
+  await service.from('training_sessions').delete().eq('id', training.id)
+  const { data: orphan } = await coach.from('staff_reviews').select('id, training_session_id').eq('id', linkedId).single()
+  check(orphan?.id === linkedId && orphan.training_session_id === null, 'al borrar el entrenamiento la revisión se conserva sin vínculo')
+  created.linkedReviewId = linkedId
+
   console.log('4. Permisos negativos')
   const { error: roleErr } = await coach.from('profiles').update({ role: 'admin' }).eq('id', coachId)
   check(!!roleErr, 'el entrenador NO puede cambiarse el rol')
@@ -282,6 +311,7 @@ try {
 } finally {
   console.log('6. Limpieza')
   if (created.reviewId) await service.from('staff_reviews').delete().eq('id', created.reviewId)
+  if (created.linkedReviewId) await service.from('staff_reviews').delete().eq('id', created.linkedReviewId)
   if (created.commitmentId) await service.from('team_commitments').delete().eq('id', created.commitmentId)
   if (created.matchId) await service.from('matches').delete().eq('id', created.matchId)
   if (created.voleyMatchId) await service.from('matches').delete().eq('id', created.voleyMatchId)

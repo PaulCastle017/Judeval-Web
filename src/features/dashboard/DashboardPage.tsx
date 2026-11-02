@@ -26,6 +26,7 @@ import { EmptyState, ErrorMessage, Spinner } from '../../components/ui'
 import { NoteForm } from '../players/Notes'
 import { PollReminder } from './PollReminder'
 import { UpcomingMatches } from './UpcomingMatches'
+import { PendingReviews } from './PendingReviews'
 
 const UPCOMING_DAYS = 14
 const NO_NEWS_DEFAULT = 14
@@ -49,6 +50,7 @@ export function DashboardPage() {
       <PollReminder sport={sport} />
       <UpcomingTrainings sport={sport} today={today} />
       <UpcomingMatches sport={sport} today={today} />
+      <PendingReviews sport={sport} today={today} />
       <PendingFollowUps sport={sport} />
       <NoRecentNews sport={sport} today={today} userId={profile?.id ?? 'anon'} />
     </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
@@ -11,6 +11,7 @@ import { useSport } from '../../sport/SportProvider'
 import { wordsForSport } from '../../i18n/useWords'
 import { ConfirmButton, ErrorMessage, Field, Spinner, SuccessMessage } from '../../components/ui'
 import type { Tables } from '../../types/database'
+import { useEventContext, type EventContext, type EventKind } from './eventContext'
 
 const MAX_BODY = 8000
 const normalize = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
@@ -21,6 +22,7 @@ type ReviewWithPlayers = Tables<'staff_reviews'> & { review_players: { player_id
 export function ReviewDetailPage() {
   const { id = '' } = useParams()
   const isNew = id === 'nueva'
+  const [params] = useSearchParams()
   const review = useQuery({
     enabled: !isNew,
     queryKey: ['reviews', 'detail', id],
@@ -28,31 +30,48 @@ export function ReviewDetailPage() {
       unwrapMaybe(await supabase.from('staff_reviews').select('*, review_players(player_id)').eq('id', id).maybeSingle()),
   })
 
+  // Evento vinculado: el de la revisión guardada o el que llega en la URL (?entrenamiento= / ?partido=)
+  const linked: [EventKind, string] | null = review.data?.training_session_id
+    ? ['training', review.data.training_session_id]
+    : review.data?.match_id
+      ? ['match', review.data.match_id]
+      : isNew && params.get('entrenamiento')
+        ? ['training', params.get('entrenamiento')!]
+        : isNew && params.get('partido')
+          ? ['match', params.get('partido')!]
+          : null
+  const event = useEventContext(linked?.[0] ?? null, linked?.[1] ?? null)
+
   if (!isNew && review.isPending) return <Spinner />
+  if (linked && event.isPending) return <Spinner />
   if (review.isError) return <ErrorMessage error={review.error} onRetry={review.refetch} />
+  if (event.isError) return <ErrorMessage error={event.error} onRetry={event.refetch} />
   if (!isNew && !review.data) return <ErrorMessage message="Revisión no encontrada." />
+  // Una revisión por evento: si ya existe, se abre esa
+  if (isNew && event.data?.existingReviewId) return <Navigate to={`/revisiones/${event.data.existingReviewId}`} replace />
 
   return (
     <div className="stack">
       <Link to="/revisiones" className="back-link">
         ← Revisiones
       </Link>
-      <ReviewForm key={review.data?.id ?? 'nueva'} review={isNew ? null : review.data!} />
+      <ReviewForm key={review.data?.id ?? `nueva-${linked?.[1] ?? ''}`} review={isNew ? null : review.data!} event={event.data ?? null} />
     </div>
   )
 }
 
-function ReviewForm({ review }: { review: ReviewWithPlayers | null }) {
+function ReviewForm({ review, event }: { review: ReviewWithPlayers | null; event: EventContext | null }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const sport = useSport()
+  const activeSport = useSport()
   const { profile, isAdmin } = useAuth()
   const staff = useStaff()
-  // Jugadores del deporte de la revisión (normalmente el activo)
-  const players = usePlayers(review?.sport ?? sport)
-  const w = wordsForSport(review?.sport ?? sport)
+  // Deporte: el de la revisión, o el del evento al que se vincula, o el activo
+  const sport = review?.sport ?? event?.sport ?? activeSport
+  const players = usePlayers(sport)
+  const w = wordsForSport(sport)
 
-  const [reviewDate, setReviewDate] = useState(review?.review_date ?? todayISO())
+  const [reviewDate, setReviewDate] = useState(review?.review_date ?? event?.date ?? todayISO())
   const [body, setBody] = useState(review?.body ?? '')
   const [selected, setSelected] = useState<string[]>(review?.review_players.map((r) => r.player_id) ?? [])
   const [search, setSearch] = useState('')
@@ -67,6 +86,8 @@ function ReviewForm({ review }: { review: ReviewWithPlayers | null }) {
     )
   }, [players.data, selected, search])
   const playerById = new Map(players.data?.map((p) => [p.id, p]))
+  // Sugerencias del evento: participantes aún sin etiquetar (no se etiquetan solos)
+  const suggested = (event?.participantIds ?? []).filter((pid) => !selected.includes(pid) && playerById.has(pid))
 
   const save = useMutation({
     // RPC: guarda la revisión y sus jugadores etiquetados en una sola transacción
@@ -75,17 +96,26 @@ function ReviewForm({ review }: { review: ReviewWithPlayers | null }) {
         await supabase.rpc('save_review', {
           // null explícito en un alta: si se omitiera, PostgREST no encontraría la función
           p_id: (review?.id ?? null) as string,
-          p_sport: review?.sport ?? sport,
+          p_sport: sport,
           p_review_date: values.review_date,
           p_body: values.body,
           p_player_ids: values.player_ids,
+          // Vínculo al entrenamiento o partido de origen (solo al crearla)
+          ...(!review && event?.kind === 'training' ? { p_training_session_id: event.id } : {}),
+          ...(!review && event?.kind === 'match' ? { p_match_id: event.id } : {}),
         }),
       ),
     onSuccess: async (id) => {
       setSaved(true)
-      await queryClient.invalidateQueries({ queryKey: ['reviews'] })
-      // Al crear, la página se vuelve a montar con el id nuevo: el aviso viaja en el estado de navegación
+      // Al crear, la página se vuelve a montar con el id nuevo: el aviso viaja en el estado de navegación.
+      // Se navega ANTES de invalidar: si no, el contexto del evento se recarga con esta revisión como
+      // «existente» y la redirección de «una por evento» se adelanta y pierde el aviso.
       if (!review) navigate(`/revisiones/${id}`, { replace: true, state: { justSaved: true } })
+      await queryClient.invalidateQueries({ queryKey: ['reviews'] })
+    },
+    onError: async (err: { code?: string }) => {
+      // Otra persona acaba de escribir la revisión de este evento: se abre esa
+      if (err.code === '23505' && event) await queryClient.invalidateQueries({ queryKey: ['reviews', 'event'] })
     },
   })
   const remove = useMutation({
@@ -116,6 +146,11 @@ function ReviewForm({ review }: { review: ReviewWithPlayers | null }) {
         <div>
           <h1>{review ? `Revisión del ${formatDate(review.review_date)}` : 'Nueva revisión'}</h1>
           {review && <p className="muted small">Escrita por {staffName(staff.data, review.created_by)}</p>}
+          {event && (
+            <Link to={event.link} className="chip chip-static event-chip">
+              {event.label}
+            </Link>
+          )}
         </div>
         {review && (isAdmin || review.created_by === profile?.id) && (
           <ConfirmButton onConfirm={() => remove.mutate()} confirmText="Borrar revisión" disabled={remove.isPending}>
@@ -151,6 +186,30 @@ function ReviewForm({ review }: { review: ReviewWithPlayers | null }) {
         <h2>
           👥 {w.Players} {w.mentionedPl} (opcional)
         </h2>
+        {suggested.length > 0 && (
+          <div className="stack-sm suggestions">
+            <div className="row space-between">
+              <span className="small muted">
+                {event?.kind === 'training' ? `Presentes en el entrenamiento` : `En el partido`} · toca para etiquetar
+              </span>
+              <button type="button" className="btn btn-ghost btn-small" onClick={() => setSelected((list) => [...list, ...suggested])}>
+                Etiquetar a {w.all}
+              </button>
+            </div>
+            <ul className="chips">
+              {suggested.map((pid) => {
+                const p = playerById.get(pid)
+                return p ? (
+                  <li key={pid}>
+                    <button type="button" className="chip chip-touch chip-suggest" onClick={() => toggle(pid)}>
+                      + {playerName(p)}
+                    </button>
+                  </li>
+                ) : null
+              })}
+            </ul>
+          </div>
+        )}
         {selected.length > 0 ? (
           <ul className="chips">
             {selected.map((id) => {

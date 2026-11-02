@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(99);
+select plan(113);
 
 -- Usuarios de prueba ---------------------------------------------------------------
 insert into auth.users (id, email, aud, role) values
@@ -276,6 +276,34 @@ set local role authenticated;
 select lives_ok($$delete from public.exercises where id = '00000000-0000-0000-0000-0000000000b1'$$, 'admin: puede borrar un ejercicio ajeno');
 reset role;
 select is((select count(*)::int from exercises where id = '00000000-0000-0000-0000-0000000000b1'), 0, 'el ejercicio queda borrado');
+
+-- FINALIZAR Y REVISIÓN VINCULADA -------------------------------------------------------
+insert into training_sessions (id, category_id, session_date) values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-00000000ca71', '2030-03-01');
+
+set local role anon;
+select throws_ok($$update public.training_sessions set finished_at = now() where id = '00000000-0000-0000-0000-0000000000a7'$$, '42501', null, 'anon no puede finalizar entrenamientos');
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
+set local role authenticated;
+select lives_ok($$update public.training_sessions set finished_at = now(), finished_by = '00000000-0000-0000-0000-0000000000c1' where id = '00000000-0000-0000-0000-0000000000a7'$$, 'coach: finaliza un entrenamiento');
+select isnt((select finished_at from training_sessions where id = '00000000-0000-0000-0000-0000000000a7'), null, 'el entrenamiento queda finalizado');
+select lives_ok($$update public.training_sessions set finished_at = null, finished_by = null where id = '00000000-0000-0000-0000-0000000000a7'$$, 'coach: lo reabre');
+select lives_ok($$update public.matches set finished_at = now() where id = '00000000-0000-0000-0000-0000000000e1'$$, 'coach: finaliza un partido');
+select lives_ok($$select public.save_review(null, 'futsal', '2030-03-01', 'Revisión del entreno', '{}', '00000000-0000-0000-0000-0000000000a7', null)$$, 'coach: revisión vinculada al entrenamiento');
+select is((select training_session_id from staff_reviews where body = 'Revisión del entreno'), '00000000-0000-0000-0000-0000000000a7'::uuid, 'la revisión queda vinculada');
+select throws_ok($$select public.save_review(null, 'futsal', '2030-03-01', 'Otra', '{}', '00000000-0000-0000-0000-0000000000a7', null)$$, '23505', null, 'una sola revisión por entrenamiento');
+select throws_ok($$select public.save_review(null, 'voley', '2030-03-01', 'Mal deporte', '{}', '00000000-0000-0000-0000-0000000000a7', null)$$, '23514', null, 'la revisión debe ser del deporte del evento');
+select throws_ok($$insert into public.staff_reviews (sport, body, training_session_id, match_id) values ('futsal', 'x', '00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000e1')$$,
+  '23514', null, 'una revisión no se vincula a dos eventos');
+select lives_ok($$select public.save_review(null, 'futsal', '2030-03-01', 'Revisión del partido', '{}', null, '00000000-0000-0000-0000-0000000000e1')$$, 'coach: revisión vinculada al partido');
+select lives_ok($$select public.save_review((select id from public.staff_reviews where body = 'Revisión del entreno'), 'futsal', '2030-03-02', 'Editada', '{}')$$,
+  'coach: edita la revisión desde el listado');
+select is((select training_session_id from staff_reviews where body = 'Editada'), '00000000-0000-0000-0000-0000000000a7'::uuid, 'editar conserva el vínculo con el evento');
+reset role;
+
+delete from training_sessions where id = '00000000-0000-0000-0000-0000000000a7';
+select is((select training_session_id from staff_reviews where body = 'Editada'), null, 'al borrar el evento la revisión se conserva sin vínculo');
 
 select * from finish();
 rollback;

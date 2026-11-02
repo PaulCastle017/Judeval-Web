@@ -18,7 +18,9 @@ export function ReviewsPage() {
       unwrap(
         await supabase
           .from('staff_reviews')
-          .select('id, review_date, body, created_by, review_players(player_id)')
+          .select(
+            'id, review_date, body, created_by, review_players(player_id), training_session:training_sessions(session_date, category:categories(name)), match:matches(opponent, match_date)',
+          )
           .eq('sport', sport)
           .order('review_date', { ascending: false })
           .order('created_at', { ascending: false }),
@@ -46,6 +48,13 @@ export function ReviewsPage() {
             <strong>{formatDate(r.review_date)}</strong>
             <span className="muted small">{staffName(staff.data, r.created_by)}</span>
           </header>
+          {(r.training_session || r.match) && (
+            <span className="chip chip-static event-chip">
+              {r.training_session
+                ? `📋 Entreno ${r.training_session.category.name} · ${formatDate(r.training_session.session_date)}`
+                : `🏆 vs ${r.match!.opponent} · ${formatDate(r.match!.match_date)}`}
+            </span>
+          )}
           <p className="clamp review-excerpt">{r.body || <span className="muted">(sin texto)</span>}</p>
           {r.review_players.length > 0 && (
             <ul className="chips">

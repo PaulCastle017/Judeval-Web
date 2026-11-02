@@ -5,16 +5,17 @@ import { unwrap, useCategories } from '../../lib/queries'
 import { formatTime, relativeDayLabel, SPORT_EMOJI, todayISO } from '../../lib/format'
 import { useSport } from '../../sport/SportProvider'
 import { useWords } from '../../i18n/useWords'
-import { EmptyState, ErrorMessage, PageHeader, Spinner } from '../../components/ui'
+import { Badge, EmptyState, ErrorMessage, PageHeader, Spinner } from '../../components/ui'
 import { MatchResultBadge } from './MatchResultBadge'
 import type { Tables } from '../../types/database'
 
 export type MatchRow = Pick<
   Tables<'matches'>,
-  'id' | 'category_id' | 'match_date' | 'start_time' | 'opponent' | 'location' | 'venue' | 'competition' | 'goals_for' | 'goals_against'
-> & { match_players: { count: number }[] }
+  'id' | 'category_id' | 'match_date' | 'start_time' | 'opponent' | 'location' | 'venue' | 'competition' | 'goals_for' | 'goals_against' | 'finished_at'
+> & { match_players: { count: number }[]; staff_reviews: { id: string }[] }
 
-export const MATCH_SELECT = 'id, category_id, match_date, start_time, opponent, location, venue, competition, goals_for, goals_against, match_players(count)'
+export const MATCH_SELECT =
+  'id, category_id, match_date, start_time, opponent, location, venue, competition, goals_for, goals_against, finished_at, match_players(count), staff_reviews(id)'
 
 export function MatchesPage() {
   const sport = useSport()
@@ -132,7 +133,11 @@ export function MatchCard({ match: m, categories, today }: { match: MatchRow; ca
           {relativeDayLabel(m.match_date, today)}
           {m.start_time && <span className="muted"> · {formatTime(m.start_time)}</span>}
         </span>
-        <MatchResultBadge goalsFor={m.goals_for} goalsAgainst={m.goals_against} />
+        <span className="row-tight">
+          <MatchResultBadge goalsFor={m.goals_for} goalsAgainst={m.goals_against} />
+          {m.finished_at && <Badge tone="success">Finalizado ✓</Badge>}
+          {m.finished_at && m.staff_reviews.length === 0 && <Badge tone="warn">Sin revisión</Badge>}
+        </span>
       </header>
       <p className="match-teams">
         <strong>{category?.name ?? '—'}</strong> <span className="muted">vs</span> <strong>{m.opponent}</strong>
