@@ -16,7 +16,7 @@ import { filterExercises } from './exerciseFilters'
 
 export function TagFilter({ value, onChange }: { value: ExerciseTag | ''; onChange: (t: ExerciseTag | '') => void }) {
   return (
-    <div className="chips" role="group" aria-label="Filtrar por etiqueta">
+    <div className="chips chips-scroll" role="group" aria-label="Filtrar por etiqueta">
       <button type="button" className={`chip${value === '' ? ' chip-on' : ''}`} onClick={() => onChange('')}>
         Todas
       </button>
@@ -57,9 +57,9 @@ export function ExerciseLibrary({ sport }: { sport: Sport }) {
       {exercises.isPending && <Spinner />}
       {exercises.isError && <ErrorMessage error={exercises.error} onRetry={exercises.refetch} />}
       {exercises.isSuccess && exercises.data.length === 0 && !creating && (
-        <EmptyState>La biblioteca está vacía. Añade el primer ejercicio.</EmptyState>
+        <EmptyState icon="📚">La biblioteca está vacía. Añade el primer ejercicio con «+ Nuevo ejercicio».</EmptyState>
       )}
-      {exercises.isSuccess && exercises.data.length > 0 && visible.length === 0 && <EmptyState>Ningún ejercicio coincide con la búsqueda.</EmptyState>}
+      {exercises.isSuccess && exercises.data.length > 0 && visible.length === 0 && <EmptyState icon="🔍">Ningún ejercicio coincide con la búsqueda.</EmptyState>}
 
       {open && <ExerciseDetail key={open.id} exercise={open} sport={sport} onClose={() => setOpenId(null)} />}
 

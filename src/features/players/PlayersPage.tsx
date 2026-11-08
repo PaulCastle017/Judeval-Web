@@ -99,7 +99,7 @@ export function PlayersPage() {
       {categories.isError && <ErrorMessage error={categories.error} onRetry={categories.refetch} />}
 
       {players.isSuccess && categories.isSuccess && grouped.length === 0 && (
-        <EmptyState>No hay {w.players} que coincidan con los filtros.</EmptyState>
+        <EmptyState icon="🔍">No hay {w.players} que coincidan con los filtros.</EmptyState>
       )}
 
       {grouped.map(({ category, players: list }) => (

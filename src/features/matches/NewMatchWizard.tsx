@@ -7,6 +7,7 @@ import { unwrap, useCoachCategories } from '../../lib/queries'
 import { todayISO } from '../../lib/format'
 import { defaultCategoryId, readLast, readRecent, rememberMatch, upcomingWeekend } from '../../lib/defaults'
 import { matchSchema, parseForm, type FieldErrors } from '../../lib/validation'
+import { useFieldErrors } from '../../lib/useFieldErrors'
 import { useAuth } from '../../auth/AuthProvider'
 import { CategoryCards, DateChips, Segmented, TimeChips } from '../../components/pickers'
 import { ErrorMessage, Field } from '../../components/ui'
@@ -52,9 +53,10 @@ export function NewMatchWizard({ categories }: { categories: Tables<'categories'
       notes: '',
     }
   })
-  const [errors, setErrors] = useState<FieldErrors>({})
+  const { errors, setErrors, clearError } = useFieldErrors()
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    clearError(String(key))
     setForm((f) => ({ ...f, [key]: value }))
   }
 

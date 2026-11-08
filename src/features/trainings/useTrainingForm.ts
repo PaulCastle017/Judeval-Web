@@ -6,6 +6,7 @@ import { unwrap, unwrapMaybe, useCoachCategories } from '../../lib/queries'
 import { minutesBetween, todayISO } from '../../lib/format'
 import { defaultCategoryId, pushRecent, readLast, upcomingTrainingDays } from '../../lib/defaults'
 import { parseExercises, parseForm, trainingSchema, type ExerciseTag, type FieldErrors } from '../../lib/validation'
+import { useFieldErrors } from '../../lib/useFieldErrors'
 import { useAuth } from '../../auth/AuthProvider'
 import type { Tables } from '../../types/database'
 
@@ -138,7 +139,7 @@ export function useTrainingForm({
       }),
     )
   })
-  const [errors, setErrors] = useState<FieldErrors>({})
+  const { errors, setErrors, clearError, clearErrorsWithPrefix } = useFieldErrors()
 
   // Guarda el borrador (solo en el alta con asistente)
   useEffect(() => {
@@ -174,6 +175,7 @@ export function useTrainingForm({
 
   function changeCategory(id: string) {
     const c = categories.find((x) => x.id === id)
+    clearError('category_id', 'session_date', 'start_time', 'duration_minutes')
     // En un alta se proponen el próximo día y el horario de la nueva categoría
     setForm((f) => ({
       ...f,
@@ -183,12 +185,16 @@ export function useTrainingForm({
     }))
   }
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
+    clearError(String(key))
     setForm((f) => ({ ...f, [key]: value }))
   }
   function updateExercise(key: number, patch: Partial<ExerciseRow>) {
+    const index = exercises.findIndex((e) => e.key === key)
+    clearError(...Object.keys(patch).map((field) => `exercises.${index}.${field}`))
     setExercises((list) => list.map((e) => (e.key === key ? { ...e, ...patch } : e)))
   }
   function moveExercise(index: number, delta: number) {
+    clearErrorsWithPrefix('exercises') // los errores van por posición: al reordenar dejarían de cuadrar
     setExercises((list) => {
       const next = [...list]
       const [item] = next.splice(index, 1)
@@ -196,7 +202,10 @@ export function useTrainingForm({
       return next
     })
   }
-  const removeExercise = (key: number) => setExercises((list) => list.filter((e) => e.key !== key))
+  const removeExercise = (key: number) => {
+    clearErrorsWithPrefix('exercises')
+    setExercises((list) => list.filter((e) => e.key !== key))
+  }
   const addExercise = (row: ExerciseRow) => setExercises((list) => [...list, row])
 
   function parse() {

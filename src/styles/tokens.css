@@ -1,0 +1,130 @@
+/* JUDEVAL · tokens de diseño
+   Único sitio donde se definen colores, tipografía, espacios, radios, sombras y medidas táctiles.
+   El resto de hojas solo usa var(--…): así se ajusta todo desde aquí (y queda listo para un modo oscuro). */
+:root {
+  /* Marca: morado del club (principal), blanco y negro */
+  --brand: #990074;
+  --brand-dark: #6b0051;
+  --brand-ink: #4a0038;
+  --brand-tint: #f9ebf5;
+  --brand-tint-strong: #efcfe5;
+  --brand-gradient: linear-gradient(120deg, #990074 0%, #82005f 100%);
+  --ring: rgba(153, 0, 116, 0.28);
+  --on-brand: #fff;
+  --on-brand-soft: #fbe3f2;
+
+  /* Superficies y bordes */
+  --bg: #f8f5f7;
+  --surface: #fff;
+  --surface-tint: #fffbfe; /* tarjetas destacadas: formularios en línea, sugerencias, selector… */
+  --surface-sunken: #efeaed; /* fondos neutros: badge, etiqueta sin tipo, controles segmentados */
+  --surface-glass: rgba(248, 245, 247, 0.95); /* barras fijas sobre el contenido */
+  --border: #ebe5e9;
+  --border-strong: #d9d1d6;
+
+  /* Texto */
+  --text: #141414;
+  --text-soft: #2e2a2d;
+  --text-muted: #625c60;
+  --text-neutral: #3d383b;
+  --text-placeholder: #8d858a;
+  --white: #fff;
+
+  /* Fondos de tarjeta de deporte y de vídeo */
+  --brand-deep: #5a0044;
+  --plum-ink: #2a1a24;
+  --media-bg: #111;
+
+  /* Estados: texto, fondo, borde y fondo al pasar */
+  --success: #1f7a4d;
+  --success-bg: #e3f4ea;
+  --success-border: #bfe3cd;
+  --success-hover: #d3eedd;
+  --danger: #b42318;
+  --danger-bg: #fdecea;
+  --danger-border: #f5c2bd;
+  --danger-hover: #fbd9d5;
+  --warn: #9a5b00;
+  --warn-bg: #fff3dc;
+  --warn-border: #f3d9a6;
+  --info: #1d5fa8;
+  --info-bg: #e5f0fb;
+  --info-border: #c3dbf3;
+
+  /* WhatsApp (recordatorio de la encuesta) */
+  --whatsapp: #25d366;
+  --whatsapp-bg: #effaf3;
+  --whatsapp-border: #b7e4c7;
+
+  /* Etiquetas de ejercicio: versión suave (etiqueta) e intensa (barra de tiempo) */
+  --tag-none-strong: #a99ca4;
+  --tag-calentamiento-bg: #ffe3d6;   --tag-calentamiento-fg: #9a3b12;   --tag-calentamiento-strong: #e8743b;
+  --tag-tecnica-bg: #dcecff;         --tag-tecnica-fg: #1d4f91;         --tag-tecnica-strong: #3b82c4;
+  --tag-tactica-bg: #efe0ff;         --tag-tactica-fg: #5b2d91;         --tag-tactica-strong: #8a4fcf;
+  --tag-fisico-bg: #ffe1e6;          --tag-fisico-fg: #a1203a;          --tag-fisico-strong: #d6455f;
+  --tag-juego_reducido-bg: #fff1c7;  --tag-juego_reducido-fg: #7a5a00;  --tag-juego_reducido-strong: #e0b100;
+  --tag-vuelta_calma-bg: #dff5e7;    --tag-vuelta_calma-fg: #1f7a4d;    --tag-vuelta_calma-strong: #34a36a;
+
+  /* Campos de juego */
+  --court-futsal: #2f7d57;
+  --court-volley: #d9894a;
+  --court-line: rgba(255, 255, 255, 0.85);
+  --court-net: #141414;
+
+  /* Tipografía: 6 tamaños y 3 pesos (más el normal del texto) */
+  --font: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-xs: 0.78rem;   /* etiquetas, badges, ayudas */
+  --fs-sm: 0.875rem;  /* metadatos, botones pequeños, etiquetas de campo */
+  --fs-md: 1rem;      /* texto, botones */
+  --fs-lg: 1.125rem;  /* títulos de tarjeta (h2) */
+  --fs-xl: 1.375rem;  /* cifras destacadas */
+  --fs-2xl: clamp(1.5rem, 1.25rem + 1vw, 1.9rem); /* título de página (h1) */
+  --fs-nav: 0.7rem;         /* etiquetas del menú inferior */
+  --fs-nav-narrow: 0.64rem; /* … en pantallas de 320–359 px */
+  --fs-input-mobile: 16px;  /* iOS no hace zoom al enfocar campos de ≥ 16 px */
+  /* Tamaños de icono / emoji */
+  --icon-xs: 0.7rem;
+  --icon-sm: 1.1rem;
+  --icon-md: 1.35rem;
+  --icon-lg: 1.8rem;
+  --icon-xl: 4rem;
+  --fw-medium: 500;
+  --fw-semibold: 650;
+  --fw-bold: 750;
+  --lh: 1.55;
+  --lh-tight: 1.25;
+
+  /* Espacios (escala 4/8) */
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s5: 1.5rem;
+  --s6: 2rem;
+  --s7: 3rem;
+
+  /* Radios: 3 y la píldora */
+  --r-sm: 8px;   /* miniaturas, botones de icono, marcadores pequeños */
+  --r-md: 12px;  /* campos, botones, cajas internas */
+  --r-lg: 18px;  /* tarjetas y hojas */
+  --r-pill: 999px;
+
+  /* Sombras (tintadas de morado) */
+  --shadow-1: 0 1px 2px rgba(20, 20, 20, 0.05), 0 1px 3px rgba(20, 20, 20, 0.04);
+  --shadow-2: 0 4px 14px rgba(74, 0, 56, 0.09), 0 1px 3px rgba(20, 20, 20, 0.05);
+  --shadow-3: 0 8px 28px rgba(74, 0, 56, 0.18);
+  --shadow-brand: 0 2px 8px rgba(153, 0, 116, 0.28);
+  --shadow-on-court: 0 3px 10px rgba(0, 0, 0, 0.3);
+
+  /* Táctil, safe area y capas */
+  --tap: 44px;
+  --tap-lg: 48px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --bottomnav-h: 4.1rem; /* alto del menú inferior sin safe area */
+  --z-sticky: 5;
+  --z-bar: 6;
+  --z-nav: 10;
+  --z-sheet: 40;
+  --z-drag: 50;
+}

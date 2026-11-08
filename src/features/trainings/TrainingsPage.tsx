@@ -79,10 +79,19 @@ export function TrainingsPage() {
     setParams(next, { replace: true })
   }
 
+  // En el móvil la pestaña larga se acorta a «📚 Biblioteca» (a 320 px no cabía); el nombre accesible no cambia
   const TABS = [
-    { id: 'proximos', label: 'Próximos' },
-    { id: 'anteriores', label: 'Anteriores' },
-    { id: 'biblioteca', label: '📚 Biblioteca de ejercicios' },
+    { id: 'proximos', name: 'Próximos', label: <>Próximos</> },
+    { id: 'anteriores', name: 'Anteriores', label: <>Anteriores</> },
+    {
+      id: 'biblioteca',
+      name: 'Biblioteca de ejercicios',
+      label: (
+        <>
+          📚 Biblioteca<span className="tab-long"> de ejercicios</span>
+        </>
+      ),
+    },
   ] as const
 
   return (
@@ -119,6 +128,7 @@ export function TrainingsPage() {
             type="button"
             role="tab"
             aria-selected={view === t.id}
+            aria-label={t.name}
             className={view === t.id ? 'on' : ''}
             onClick={() => setParam('vista', t.id === 'proximos' ? '' : t.id)}
           >
@@ -149,8 +159,15 @@ export function TrainingsPage() {
               {upcoming.isPending && <Spinner />}
               {upcoming.isError && <ErrorMessage error={upcoming.error} onRetry={upcoming.refetch} />}
               {upcoming.isSuccess && upcoming.data.length === 0 && (
-                <EmptyState>
-                  No hay entrenamientos programados. <Link to={newLink}>Crea el primero</Link>.
+                <EmptyState
+                  icon="📋"
+                  action={
+                    <Link to={newLink} className="btn btn-primary btn-small">
+                      + Crear el primero
+                    </Link>
+                  }
+                >
+                  No hay entrenamientos programados.
                 </EmptyState>
               )}
               <div className="training-grid">
@@ -163,7 +180,7 @@ export function TrainingsPage() {
             <section className="stack-sm">
               {past.isPending && <Spinner />}
               {past.isError && <ErrorMessage error={past.error} onRetry={past.refetch} />}
-              {past.isSuccess && past.data.length === 0 && <EmptyState>Todavía no hay entrenamientos anteriores.</EmptyState>}
+              {past.isSuccess && past.data.length === 0 && <EmptyState icon="📅">Todavía no hay entrenamientos anteriores.</EmptyState>}
               <div className="training-grid">
                 {past.data?.map((t) => (
                   <TrainingCard key={t.id} training={t} categories={categories.data ?? []} today={today} />

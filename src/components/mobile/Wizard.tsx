@@ -77,7 +77,8 @@ export function Wizard({
         {step.title}
       </h2>
       <div className="wizard-body stack">{step.content}</div>
-      {error && (
+      {/* El aviso desaparece en cuanto el paso queda completo (antes seguía visible con el campo ya corregido) */}
+      {error && !step.isComplete?.() && (
         <p className="field-error wizard-error" role="alert">
           {error}
         </p>

@@ -1,0 +1,253 @@
+/* JUDEVAL · componentes base: tarjetas, botones, chips, pestañas, avisos, listas, asistente y hojas.
+   Las clases son la API: las pantallas las combinan sin estilos propios. */
+
+/* Tarjetas ---------------------------------------------------------------- */
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: var(--s4) calc(var(--s4) + 0.15rem); box-shadow: var(--shadow-1);
+  min-width: 0;
+}
+.card.narrow { width: 100%; max-width: 420px; }
+.card.inactive { opacity: 0.6; }
+/* Tarjeta destacada (formularios en línea, selector de ejercicios, sugerencias…): una sola familia */
+.card-tint, .note-form, .ex-picker, .ex-form-compact { background: var(--surface-tint); border-color: var(--brand-tint-strong); }
+.callout { background: var(--brand-tint); border-color: var(--brand-tint-strong); }
+a.card { color: inherit; text-decoration: none; transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s; }
+
+/* Cabecera de tarjeta: el título se parte en líneas y la acción queda siempre arriba a la derecha */
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s2); margin-bottom: var(--s2); flex-wrap: wrap; }
+.card-head > h2, .card-head > h3, .card-head > .card-title { flex: 1 1 0; min-width: 10rem; margin: 0; }
+.card-head > :not(h2):not(h3):not(.card-title) { flex: 0 1 auto; min-width: 0; }
+
+/* Cabecera de página */
+.page-header { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: flex-start; justify-content: space-between; }
+.page-header > div:first-child { flex: 1 1 16rem; min-width: 0; }
+.page-header .muted { max-width: 60ch; }
+.back-link { display: inline-flex; align-items: center; min-height: 32px; text-decoration: none; font-size: var(--fs-sm); font-weight: var(--fw-medium); align-self: flex-start; }
+.dash-hello h1 { font-size: clamp(1.6rem, 1.3rem + 1.2vw, 2.1rem); }
+.empty-cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); }
+
+/* Campos ------------------------------------------------------------------ */
+.field, .field > label { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.field-label { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-soft); }
+.field-hint { font-size: var(--fs-xs); color: var(--text-muted); }
+.field-error { font-size: var(--fs-xs); color: var(--danger); font-weight: var(--fw-semibold); }
+.field.has-error input, .field.has-error select, .field.has-error textarea, .input-error { border-color: var(--danger); }
+.checkbox { display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer; }
+.checkbox input { width: auto; accent-color: var(--brand); }
+.inline-field { display: inline-flex; align-items: center; gap: 0.4rem; font-size: var(--fs-sm); }
+.inline-field input { width: auto; }
+.input-narrow { width: 5.5rem; flex: 0 0 auto; }
+.input-auto { width: auto; }
+.select-small { width: auto; min-height: 34px; padding: 0.3rem 0.6rem; font-size: var(--fs-sm); }
+.filters { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.filters > * { flex: 1 1 180px; }
+.filters > .inline-field { flex: 0 1 auto; }
+
+/* Botones -----------------------------------------------------------------
+   Variantes: (secundario por defecto) · primary · ghost · danger · success · on-dark
+   Tamaños: btn-small · (normal) · btn-large / btn-touch. El texto se parte si no cabe (nunca desborda). */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 40px; max-width: 100%;
+  font: inherit; font-weight: var(--fw-semibold); line-height: var(--lh-tight); text-align: center; text-decoration: none; cursor: pointer;
+  padding: 0.55rem 1rem; border-radius: var(--r-md); border: 1px solid var(--brand-tint-strong);
+  background: var(--brand-tint); color: var(--brand-dark); overflow-wrap: anywhere;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.05s;
+}
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn-primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); box-shadow: var(--shadow-brand); }
+.btn-ghost { background: transparent; border-color: var(--border-strong); color: var(--text-soft); }
+.btn-on-dark { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.35); color: var(--on-brand); }
+.btn-danger { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger); }
+.btn-success { background: var(--success-bg); border-color: var(--success-border); color: var(--success); font-weight: var(--fw-bold); }
+/* Desactivado: gris neutro (con opacidad el morado parecía otro color, no «desactivado») */
+.btn:disabled { cursor: not-allowed; background: var(--surface-sunken); border-color: var(--border); color: var(--text-placeholder); box-shadow: none; }
+.btn-small { min-height: 34px; padding: 0.35rem 0.75rem; font-size: var(--fs-sm); }
+.btn-large, .btn-touch { min-height: var(--tap-lg); padding: 0.75rem 1.25rem; font-size: var(--fs-md); font-weight: var(--fw-bold); }
+.btn-block { width: 100%; }
+
+.icon-btn {
+  width: 2.25rem; height: 2.25rem; display: inline-grid; place-items: center; flex: 0 0 auto; padding: 0;
+  font: inherit; font-weight: var(--fw-bold); cursor: pointer; border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-soft);
+}
+.icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.icon-btn-danger { color: var(--danger); }
+.icon-btn svg, .icon svg { display: block; }
+.icon { display: inline-grid; place-items: center; }
+
+/* Confirmación en dos pasos (ConfirmButton): pregunta + botones; en el móvil se apila a lo ancho */
+.confirm-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s2); max-width: 100%; }
+.confirm-question { flex-basis: 100%; margin: 0; font-weight: var(--fw-semibold); color: var(--text-soft); }
+
+@media (hover: hover) {
+  .btn:hover:not(:disabled) { background: var(--brand-tint-strong); }
+  .btn-primary:hover:not(:disabled) { background: var(--brand-dark); }
+  .btn-ghost:hover:not(:disabled) { background: rgba(153, 0, 116, 0.06); }
+  .btn-on-dark:hover:not(:disabled) { background: rgba(255, 255, 255, 0.25); }
+  .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+  .btn-success:hover:not(:disabled) { background: var(--success-hover); }
+  .icon-btn:hover:not(:disabled) { background: var(--brand-tint); }
+  a.card:hover { box-shadow: var(--shadow-2); border-color: var(--brand-tint-strong); transform: translateY(-1px); }
+}
+
+/* Chips: selección/filtro (chip, .chip-on) · información (chip-static) · sugerencia (chip-suggest) */
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; padding: 0; margin: 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 0.3rem; min-height: 32px; max-width: 100%;
+  font: inherit; font-size: var(--fs-sm); line-height: var(--lh-tight); padding: 0.32rem 0.75rem; border-radius: var(--r-pill);
+  border: 1px solid var(--border-strong); background: var(--surface); color: inherit; text-decoration: none; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.chip-on { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.chip-on .muted { color: var(--on-brand-soft); }
+.chip-static { cursor: default; background: var(--brand-tint); border-color: var(--brand-tint-strong); color: var(--brand-dark); font-weight: var(--fw-medium); }
+a.chip-static { cursor: pointer; }
+.chip-suggest { border-style: dashed; border-color: var(--brand); color: var(--brand-dark); }
+.chip-sm { min-height: 28px; padding: 0.2rem 0.55rem; font-size: var(--fs-xs); }
+.chip-touch { min-height: var(--tap); padding: 0.5rem 0.95rem; font-size: var(--fs-md); }
+@media (hover: hover) {
+  .chip:hover { border-color: var(--brand); }
+  .chip-static:not(a):hover { border-color: var(--brand-tint-strong); }
+}
+/* Fila de chips que se desplaza en horizontal en el móvil (filtros) */
+@media (max-width: 639px) {
+  .chips-scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--s4)); padding: 2px var(--s4); scroll-padding: 0 var(--s4); }
+  .chips-scroll::-webkit-scrollbar { display: none; }
+  .chips-scroll > * { flex: 0 0 auto; }
+}
+
+/* Pestañas: alto táctil y desplazables si no caben (a 320 px la tercera se salía de la pantalla) */
+.tabs { display: flex; gap: var(--s1); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button {
+  flex: 0 0 auto; min-height: var(--tap); white-space: nowrap;
+  font: inherit; padding: 0.55rem 1rem; border: 0; background: none; cursor: pointer;
+  border-bottom: 3px solid transparent; color: var(--text-muted); font-weight: var(--fw-medium);
+}
+.tabs button.on { border-bottom-color: var(--brand); color: var(--brand-dark); font-weight: var(--fw-bold); }
+@media (max-width: 639px) { .tab-long { display: none; } .tabs button { padding: 0.55rem 0.8rem; } }
+
+/* Control segmentado (Local/Visitante, Vídeo/Texto) */
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: var(--r-md); background: var(--surface-sunken); }
+.segmented button {
+  min-height: var(--tap); font: inherit; font-weight: var(--fw-semibold); border: 0; border-radius: var(--r-sm); cursor: pointer; background: transparent; color: var(--text-soft);
+}
+.segmented button.on { background: var(--surface); color: var(--brand-dark); box-shadow: var(--shadow-1); }
+
+/* Avisos y estados ----------------------------------------------------------- */
+.alert { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; justify-content: space-between; padding: var(--s3) var(--s4); border-radius: var(--r-md); overflow-wrap: anywhere; }
+.alert-error { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
+.alert-success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+.alert-info { background: var(--info-bg); color: var(--info); border: 1px solid var(--info-border); }
+.empty { color: var(--text-muted); margin: var(--s2) 0; }
+/* Estado vacío: icono + texto + acción opcional */
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--s2); padding: var(--s5) var(--s4); text-align: center; color: var(--text-muted); border: 1px dashed var(--border-strong); border-radius: var(--r-lg); }
+.empty-state-icon { font-size: var(--icon-lg); line-height: 1; }
+.empty-state p { margin: 0; max-width: 42ch; }
+.spinner-wrap { display: flex; align-items: center; gap: 0.6rem; color: var(--text-muted); padding: var(--s3) 0; }
+.spinner {
+  width: 1.2rem; height: 1.2rem; border-radius: 50%;
+  border: 3px solid var(--brand-tint-strong); border-top-color: var(--brand);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: var(--fs-xs); font-weight: var(--fw-semibold); padding: 0.18rem 0.6rem; border-radius: var(--r-pill); white-space: nowrap; }
+.badge-neutral { background: var(--surface-sunken); color: var(--text-neutral); }
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-danger { background: var(--danger-bg); color: var(--danger); }
+.badge-warn { background: var(--warn-bg); color: var(--warn); }
+.badge-info { background: var(--info-bg); color: var(--info); }
+
+.rate { font-size: var(--fs-sm); font-weight: var(--fw-bold); padding: 0.1rem 0.45rem; border-radius: var(--r-sm); }
+.rate.good { background: var(--success-bg); color: var(--success); }
+.rate.mid { background: var(--warn-bg); color: var(--warn); }
+.rate.low { background: var(--danger-bg); color: var(--danger); }
+
+/* Listas ------------------------------------------------------------------ */
+.list { list-style: none; margin: 0; padding: 0; }
+.card.list { padding: 0; overflow: hidden; }
+.list > li { border-bottom: 1px solid var(--border); }
+.list > li:last-child { border-bottom: 0; }
+.card.list > li { padding: 0; }
+.list:not(.card) > li { padding: 0.65rem 0; }
+.list-link { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: var(--tap); padding: var(--s3) 1.1rem; color: inherit; text-decoration: none; transition: background 0.12s; }
+.list:not(.card) .list-link { padding: 0.2rem 0; }
+.list-main { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.link-list { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.link-list a { display: flex; align-items: center; gap: var(--s2); min-height: var(--tap-lg); padding: var(--s3) 1.1rem; border-bottom: 1px solid var(--border); text-decoration: none; font-weight: var(--fw-semibold); color: var(--text); }
+.link-list a:last-child { border-bottom: 0; }
+@media (hover: hover) {
+  .list-link:hover, .link-list a:hover { background: var(--bg); }
+}
+.clamp { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--text-muted); font-size: var(--fs-sm); }
+
+/* Barra de acciones fija (guardar…), por encima del menú inferior en el móvil */
+.sticky-actions {
+  position: sticky; bottom: calc(var(--bottomnav-h) + var(--safe-b) + var(--s2)); z-index: var(--z-sticky);
+  padding: var(--s2) var(--s3); margin: 0 calc(-1 * var(--s3));
+  background: var(--surface-glass); backdrop-filter: blur(6px); border-radius: var(--r-lg);
+}
+@media (min-width: 1080px) { .sticky-actions { bottom: var(--s2); } }
+
+/* Selectores visuales (pickers.tsx) -------------------------------------------- */
+.pick-group { display: flex; flex-direction: column; gap: 0.45rem; }
+.category-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: var(--s2); }
+.category-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 64px; padding: var(--s3) 0.9rem;
+  font: inherit; text-align: left; cursor: pointer; border-radius: var(--r-md);
+  border: 2px solid var(--border-strong); background: var(--surface); color: var(--text);
+}
+.category-card.on { border-color: var(--brand); background: var(--brand-tint); box-shadow: 0 0 0 1px var(--brand) inset; }
+.category-card .small { color: var(--text-muted); }
+
+/* Asistente por pasos (Wizard.tsx) ------------------------------------------- */
+.wizard { display: flex; flex-direction: column; gap: var(--s3); }
+.wizard-progress ol { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--s2); }
+.wizard-progress li { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--text-muted); text-align: center; position: relative; }
+.wizard-dot { width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; font-weight: var(--fw-bold); background: var(--border); color: var(--text-muted); }
+.wizard-progress li.current .wizard-dot { background: var(--brand); color: var(--on-brand); box-shadow: 0 0 0 4px var(--brand-tint-strong); }
+.wizard-progress li.step-done .wizard-dot { background: var(--success); color: var(--on-brand); }
+.wizard-progress li.current { color: var(--brand-dark); font-weight: var(--fw-bold); }
+.wizard-title { margin: 0; }
+.wizard-body > .card { margin: 0; }
+.wizard-error { margin: 0; }
+.wizard-bar {
+  position: sticky; bottom: calc(var(--bottomnav-h) + var(--safe-b) + var(--s2)); z-index: var(--z-bar);
+  display: flex; gap: var(--s2); padding: var(--s2); margin: 0 calc(-1 * var(--s2));
+  background: var(--surface-glass); backdrop-filter: blur(6px); border-radius: var(--r-lg);
+}
+.wizard-next { flex: 1; }
+@media (min-width: 1080px) { .wizard-bar { bottom: var(--s2); } }
+
+/* Hojas a pantalla completa en el móvil (formulario de ejercicio, selector de ejercicios) */
+.sheet-head { position: sticky; top: calc(-1 * var(--s4)); z-index: 2; background: inherit; padding: var(--s2) 0; }
+@media (max-width: 639px) {
+  .sheet {
+    position: fixed; inset: 0; z-index: var(--z-sheet); margin: 0; border-radius: 0; border: 0; overflow-y: auto; overscroll-behavior: contain;
+    padding: calc(var(--s4) + var(--safe-t)) var(--s4) calc(6rem + var(--safe-b)); background: var(--bg);
+  }
+  .sheet-actions {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: calc(var(--z-sheet) + 1); display: flex; gap: var(--s2);
+    padding: var(--s3) var(--s4) calc(var(--s3) + var(--safe-b)); background: var(--surface); border-top: 1px solid var(--border); box-shadow: var(--shadow-3);
+  }
+  .sheet-actions .btn { flex: 1; min-height: var(--tap-lg); }
+  body:has(.sheet) { overflow: hidden; }
+}
+
+/* Móvil (< 640 px): objetivos táctiles ≥ 44 px ---------------------------------- */
+@media (max-width: 639px) {
+  .btn, .btn-small, .icon-btn, .select-small { min-height: var(--tap); }
+  .btn-small { padding: 0.5rem 0.85rem; }
+  .icon-btn { width: var(--tap); height: var(--tap); }
+  .select-small { font-size: var(--fs-input-mobile); }
+  /* Solo los chips que se tocan; los informativos (chip-static en <span>) no necesitan parecer botones */
+  button.chip, a.chip, label.chip { min-height: var(--tap); padding: 0.5rem 0.9rem; }
+  .checkbox { min-height: var(--tap); }
+  .back-link { min-height: var(--tap); }
+  /* En columna sin «wrap»: con wrap, la pregunta (flex-basis 100 %) empujaba los botones a otra columna fuera de la pantalla */
+  .confirm-group { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; width: 100%; }
+  .confirm-question { flex-basis: auto; }
+  .confirm-group > .btn { width: 100%; }
+}

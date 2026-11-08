@@ -27,6 +27,9 @@ export function UpcomingMatches({ sport, today }: { sport: Sport; today: string 
               .in('category_id', ids)
               .gte('match_date', today)
               .lte('match_date', addDays(today, UPCOMING_DAYS))
+              // Los de hoy ya jugados (con resultado o finalizados) dejan de ser «próximos»
+              .is('finished_at', null)
+              .is('goals_for', null)
               .order('match_date')
               .order('start_time', { nullsFirst: false })
               .limit(5),

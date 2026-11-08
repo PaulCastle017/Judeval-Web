@@ -57,7 +57,13 @@ export function FinishPrompt({
       <div className="finish-box">
         {setFinished.isError && <ErrorMessage message={toMessage(setFinished.error)} />}
         {incomplete ? (
-          <ConfirmButton className="btn btn-touch finish-btn" confirmText={`${incomplete} ¿Finalizar igualmente?`} onConfirm={() => setFinished.mutate(true)} disabled={setFinished.isPending}>
+          <ConfirmButton
+            className="btn btn-touch finish-btn"
+            question={`${incomplete} ¿Finalizar igualmente?`}
+            confirmText="Sí, finalizar"
+            onConfirm={() => setFinished.mutate(true)}
+            disabled={setFinished.isPending}
+          >
             {label}
           </ConfirmButton>
         ) : (

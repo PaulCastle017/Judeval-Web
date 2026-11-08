@@ -33,11 +33,14 @@ export function MatchesPage() {
       ids.length === 0
         ? []
         : unwrap(
+            // Próximo: de hoy en adelante y aún sin resultado ni finalizar (uno de hoy ya jugado pasa a «Jugados»)
             await supabase
               .from('matches')
               .select(MATCH_SELECT)
               .in('category_id', ids)
               .gte('match_date', today)
+              .is('finished_at', null)
+              .is('goals_for', null)
               .order('match_date')
               .order('start_time', { nullsFirst: false }),
           ),
@@ -53,7 +56,8 @@ export function MatchesPage() {
               .from('matches')
               .select(MATCH_SELECT)
               .in('category_id', ids)
-              .lt('match_date', today)
+              // Jugado: fecha pasada, o con resultado, o finalizado
+              .or(`match_date.lt.${today},finished_at.not.is.null,goals_for.not.is.null`)
               .order('match_date', { ascending: false })
               .limit(30),
           ),
@@ -95,8 +99,15 @@ export function MatchesPage() {
         {upcoming.isPending && <Spinner />}
         {upcoming.isError && <ErrorMessage error={upcoming.error} onRetry={upcoming.refetch} />}
         {upcoming.isSuccess && upcoming.data.length === 0 && (
-          <EmptyState>
-            No hay partidos programados. <Link to={newLink}>Añade el próximo</Link>.
+          <EmptyState
+            icon="🏆"
+            action={
+              <Link to={newLink} className="btn btn-primary btn-small">
+                + Añadir el próximo
+              </Link>
+            }
+          >
+            No hay partidos programados.
           </EmptyState>
         )}
         <div className="training-grid">
@@ -110,7 +121,7 @@ export function MatchesPage() {
         <h2>Jugados</h2>
         {past.isPending && <Spinner />}
         {past.isError && <ErrorMessage error={past.error} onRetry={past.refetch} />}
-        {past.isSuccess && past.data.length === 0 && <EmptyState>Todavía no hay partidos jugados.</EmptyState>}
+        {past.isSuccess && past.data.length === 0 && <EmptyState icon="📅">Todavía no hay partidos jugados.</EmptyState>}
         <div className="training-grid">
           {past.data?.map((m) => (
             <MatchCard key={m.id} match={m} categories={categories.data ?? []} today={today} />

@@ -69,6 +69,7 @@ src/
   components/   layout y componentes comunes (errores, carga, campos…)
   features/     una carpeta por sección: dashboard, players, attendance, reviews, commitments, guide, admin, profile
   lib/          cliente Supabase, validación (zod), errores, formatos y consultas comunes
+  styles/       tokens.css (colores, tipografía, espacios, radios, sombras) · base.css · components.css · screens.css
   types/        tipos generados desde la base de datos
 supabase/
   migrations/   esquema + seguridad (RLS)
@@ -79,6 +80,15 @@ supabase/
 scripts/
   smoke-test.mjs  prueba end-to-end contra el Supabase local
 ```
+
+### Interfaz: reglas para no romper el móvil
+- **Colores, tamaños, radios y sombras solo desde `src/styles/tokens.css`** (`var(--brand)`, `var(--fs-sm)`, `var(--r-md)`…). No se escriben colores ni tamaños sueltos en las demás hojas.
+- **Dos puntos de corte**: `640 px` (móvil / resto) y `1080 px` (menú inferior / barra superior). Mobile-first.
+- **Táctil**: en el móvil todo lo que se toca mide al menos 44 px de alto y los campos usan letra de 16 px (iOS no hace zoom).
+- **Sin scroll horizontal**: los botones parten su texto en varias líneas; las filas de filtros y las pestañas se desplazan dentro de sí mismas.
+- Los efectos al pasar el ratón van dentro de `@media (hover: hover)` (en táctil se quedaban «pegados»).
+- Componentes comunes en `src/components/ui.tsx` (`ConfirmButton` con pregunta, `EmptyState` con icono y acción…) e iconos SVG en `src/components/icons.tsx`.
+- Los errores de formulario se borran al corregir el campo con `useFieldErrors` (`src/lib/useFieldErrors.ts`).
 
 ---
 

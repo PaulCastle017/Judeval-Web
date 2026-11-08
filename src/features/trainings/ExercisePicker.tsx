@@ -9,6 +9,7 @@ import { ExerciseForm } from './ExerciseForm'
 import { TagFilter } from './ExerciseLibrary'
 import { filterExercises } from './exerciseFilters'
 import { useIsMobile } from '../../components/mobile/useIsMobile'
+import { CloseIcon } from '../../components/icons'
 
 /**
  * Desplegable de «+ Añadir ejercicio»: elegir de la biblioteca (con buscador y etiquetas),
@@ -41,7 +42,7 @@ export function ExercisePicker({
       <div className="row space-between sheet-head">
         <strong>Añadir ejercicio</strong>
         <button type="button" className="btn btn-ghost btn-small" onClick={onClose}>
-          ✕ Cerrar
+          <CloseIcon size={14} /> Cerrar
         </button>
       </div>
       <div className="picker-actions">

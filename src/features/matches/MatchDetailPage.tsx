@@ -4,12 +4,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { unwrap, unwrapMaybe, useCategories, usePlayers } from '../../lib/queries'
-import { formatLongDate, playerName, SPORT_EMOJI, todayISO } from '../../lib/format'
+import { formatLongDate, formatTime, playerName, SPORT_EMOJI, todayISO } from '../../lib/format'
 import { matchResultSchema, matchSchema, parseForm, type FieldErrors } from '../../lib/validation'
+import { useFieldErrors } from '../../lib/useFieldErrors'
 import { useAuth } from '../../auth/AuthProvider'
 import { useSport } from '../../sport/SportProvider'
 import { labelsForSport, wordsForSport } from '../../i18n/useWords'
 import { ConfirmButton, ErrorMessage, Field, Spinner, SuccessMessage } from '../../components/ui'
+import { Segmented } from '../../components/pickers'
 import { MatchResultBadge } from './MatchResultBadge'
 import type { Enums, Tables, TablesUpdate } from '../../types/database'
 import { parseSetRows, parseSets, type SetRow } from '../../lib/volley'
@@ -107,8 +109,11 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
     competition: match?.competition ?? '',
     notes: match?.notes ?? '',
   })
-  const [errors, setErrors] = useState<FieldErrors>({})
+  const { errors, setErrors, clearError } = useFieldErrors()
   const [saved, setSaved] = useState(() => !!(location.state as { justSaved?: boolean } | null)?.justSaved)
+  // Partido ya creado: los datos se muestran plegados (resumen + «Editar datos») para que convocatoria,
+  // alineación y día de partido queden arriba; en un alta, el formulario está abierto
+  const [editing, setEditing] = useState(!match)
 
   const save = useMutation({
     mutationFn: async (values: ReturnType<typeof matchSchema.parse>) => {
@@ -117,6 +122,7 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
     },
     onSuccess: async (row, values) => {
       setSaved(true)
+      if (match) setEditing(false)
       await queryClient.invalidateQueries({ queryKey: ['matches'] })
       // Tras crearlo, se abre su ficha para poder hacer la convocatoria
       if (!match) {
@@ -135,6 +141,7 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setSaved(false)
+    clearError(String(key))
     setForm((f) => ({ ...f, [key]: value }))
   }
 
@@ -166,63 +173,82 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
       </header>
       {remove.isError && <ErrorMessage message={toMessage(remove.error)} />}
 
-      <div className="grid-3">
-        <Field label="Categoría *" error={errors.category_id}>
-          <select value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Fecha *" error={errors.match_date}>
-          <input type="date" value={form.match_date} onChange={(e) => set('match_date', e.target.value)} />
-        </Field>
-        <Field label="Hora" error={errors.start_time}>
-          <input type="time" value={form.start_time} onChange={(e) => set('start_time', e.target.value)} />
-        </Field>
-        <Field label="Rival *" error={errors.opponent}>
-          <input value={form.opponent} maxLength={120} placeholder="p. ej. CD Ejemplo" onChange={(e) => set('opponent', e.target.value)} />
-        </Field>
-        <Field label="Lugar" error={errors.location}>
-          <input value={form.location} maxLength={200} placeholder="Pabellón, dirección…" onChange={(e) => set('location', e.target.value)} />
-        </Field>
-        <Field label="Competición / jornada" error={errors.competition}>
-          <input value={form.competition} maxLength={120} placeholder="p. ej. Liga · J5" onChange={(e) => set('competition', e.target.value)} />
-        </Field>
-      </div>
-      <div className="row-tight" role="radiogroup" aria-label="Local o visitante">
-        {(['local', 'visitante'] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            role="radio"
-            aria-checked={form.venue === v}
-            className={`chip${form.venue === v ? ' chip-on' : ''}`}
-            onClick={() => set('venue', v)}
-          >
-            {v === 'local' ? '🏠 Local' : '✈️ Visitante'}
+      {match && (
+        <div className="match-summary">
+          <p className="match-summary-text muted">
+            {[
+              categories.find((c) => c.id === match.category_id)?.name,
+              match.start_time ? formatTime(match.start_time) : null,
+              match.venue === 'local' ? '🏠 Local' : '✈️ Visitante',
+              match.location,
+              match.competition,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+          <button type="button" className="btn btn-ghost btn-small" aria-expanded={editing} onClick={() => setEditing((v) => !v)}>
+            {editing ? 'Cerrar edición' : '✏️ Editar datos'}
           </button>
-        ))}
-      </div>
-      <Field label="Notas" error={errors.notes} hint="Hora de quedada, desplazamiento, equipación…">
-        <textarea rows={2} maxLength={2000} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
-      </Field>
+        </div>
+      )}
+      {match && !editing && match.notes && <p className="pre small muted">{match.notes}</p>}
 
-      {save.isError && <ErrorMessage message={toMessage(save.error)} />}
+      {editing && (
+        <>
+          <div className="grid-3">
+            <Field label="Categoría *" error={errors.category_id}>
+              <select value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Fecha *" error={errors.match_date}>
+              <input type="date" value={form.match_date} onChange={(e) => set('match_date', e.target.value)} />
+            </Field>
+            <Field label="Hora" error={errors.start_time}>
+              <input type="time" value={form.start_time} onChange={(e) => set('start_time', e.target.value)} />
+            </Field>
+            <Field label="Rival *" error={errors.opponent}>
+              <input value={form.opponent} maxLength={120} placeholder="p. ej. CD Ejemplo" onChange={(e) => set('opponent', e.target.value)} />
+            </Field>
+            <Field label="Lugar" error={errors.location}>
+              <input value={form.location} maxLength={200} placeholder="Pabellón, dirección…" onChange={(e) => set('location', e.target.value)} />
+            </Field>
+            <Field label="Competición / jornada" error={errors.competition}>
+              <input value={form.competition} maxLength={120} placeholder="p. ej. Liga · J5" onChange={(e) => set('competition', e.target.value)} />
+            </Field>
+          </div>
+          <Segmented
+            label="Local o visitante"
+            value={form.venue}
+            onChange={(v) => set('venue', v)}
+            options={[
+              { value: 'local', label: '🏠 Local' },
+              { value: 'visitante', label: '✈️ Visitante' },
+            ]}
+          />
+          <Field label="Notas" error={errors.notes} hint="Hora de quedada, desplazamiento, equipación…">
+            <textarea rows={2} maxLength={2000} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
+          </Field>
+
+          {save.isError && <ErrorMessage message={toMessage(save.error)} />}
+          <div className="row">
+            <button className="btn btn-primary" disabled={save.isPending}>
+              {save.isPending ? 'Guardando…' : match ? 'Guardar datos' : 'Crear partido'}
+            </button>
+            {!match && (
+              <Link to="/partidos" className="btn btn-ghost">
+                Cancelar
+              </Link>
+            )}
+          </div>
+          {!match && <p className="muted small">Después de crearlo podrás hacer la convocatoria.</p>}
+        </>
+      )}
       {saved && <SuccessMessage>{match ? 'Partido guardado.' : 'Partido creado.'}</SuccessMessage>}
-      <div className="row">
-        <button className="btn btn-primary" disabled={save.isPending}>
-          {save.isPending ? 'Guardando…' : match ? 'Guardar datos' : 'Crear partido'}
-        </button>
-        {!match && (
-          <Link to="/partidos" className="btn btn-ghost">
-            Cancelar
-          </Link>
-        )}
-      </div>
-      {!match && <p className="muted small">Después de crearlo podrás hacer la convocatoria.</p>}
     </form>
   )
 }

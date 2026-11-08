@@ -4,7 +4,8 @@ import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { unwrap, useCategories } from '../../lib/queries'
 import { labelsForSport, wordsForSport } from '../../i18n/useWords'
-import { parseForm, playerSchema, type FieldErrors } from '../../lib/validation'
+import { parseForm, playerSchema } from '../../lib/validation'
+import { useFieldErrors } from '../../lib/useFieldErrors'
 import { ErrorMessage, Field } from '../../components/ui'
 import { useSport } from '../../sport/SportProvider'
 import type { Tables } from '../../types/database'
@@ -40,7 +41,7 @@ export function PlayerForm({ player, defaultCategoryId, onSaved, onCancel }: Pro
     availability_notes: player?.availability_notes ?? '',
     physical_considerations: player?.physical_considerations ?? '',
   })
-  const [errors, setErrors] = useState<FieldErrors>({})
+  const { errors, setErrors, clearError } = useFieldErrors()
 
   const save = useMutation({
     mutationFn: async (values: ReturnType<typeof playerSchema.parse>) => {
@@ -56,6 +57,7 @@ export function PlayerForm({ player, defaultCategoryId, onSaved, onCancel }: Pro
   })
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    clearError(String(key))
     setForm((f) => ({ ...f, [key]: value }))
   }
 

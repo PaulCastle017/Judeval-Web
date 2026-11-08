@@ -41,7 +41,18 @@ export function ReviewsPage() {
       />
       {reviews.isPending && <Spinner />}
       {reviews.isError && <ErrorMessage error={reviews.error} onRetry={reviews.refetch} />}
-      {reviews.isSuccess && reviews.data.length === 0 && <EmptyState>Todavía no hay revisiones. Crea la primera.</EmptyState>}
+      {reviews.isSuccess && reviews.data.length === 0 && (
+        <EmptyState
+          icon="📝"
+          action={
+            <Link to="/revisiones/nueva" className="btn btn-primary btn-small">
+              + Escribir la primera
+            </Link>
+          }
+        >
+          Todavía no hay revisiones.
+        </EmptyState>
+      )}
       {reviews.data?.map((r) => (
         <Link key={r.id} to={`/revisiones/${r.id}`} className="card review-card">
           <header className="row space-between">

@@ -10,6 +10,7 @@ import { ErrorMessage, SuccessMessage } from '../../components/ui'
 import { FutsalCourt, VolleyCourt } from './Courts'
 import { initials, lineupSlots, type SlotId } from './lineupSlots'
 import type { Tables } from '../../types/database'
+import { DragIcon } from '../../components/icons'
 
 type SquadRow = Pick<Tables<'match_players'>, 'player_id' | 'lineup_slot'>
 type Assignment = Partial<Record<SlotId, string | null>>
@@ -221,7 +222,7 @@ export function Lineup({ matchId, squad, sport }: { matchId: string; squad: Squa
                       onClick={() => onBenchClick(id)}
                       {...dragHandlers(id)}
                     >
-                      ⠿ {nameOf(id)}
+                      <DragIcon size={14} /> {nameOf(id)}
                     </button>
                   </li>
                 ))}

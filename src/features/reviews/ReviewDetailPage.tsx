@@ -5,13 +5,15 @@ import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
 import { staffName, unwrap, unwrapMaybe, usePlayers, useStaff } from '../../lib/queries'
 import { formatDate, playerName, todayISO } from '../../lib/format'
-import { parseForm, reviewSchema, type FieldErrors } from '../../lib/validation'
+import { parseForm, reviewSchema } from '../../lib/validation'
+import { useFieldErrors } from '../../lib/useFieldErrors'
 import { useAuth } from '../../auth/AuthProvider'
 import { useSport } from '../../sport/SportProvider'
 import { wordsForSport } from '../../i18n/useWords'
 import { ConfirmButton, ErrorMessage, Field, Spinner, SuccessMessage } from '../../components/ui'
 import type { Tables } from '../../types/database'
 import { useEventContext, type EventContext, type EventKind } from './eventContext'
+import { CloseIcon } from '../../components/icons'
 
 const MAX_BODY = 8000
 const normalize = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
@@ -75,7 +77,7 @@ function ReviewForm({ review, event }: { review: ReviewWithPlayers | null; event
   const [body, setBody] = useState(review?.body ?? '')
   const [selected, setSelected] = useState<string[]>(review?.review_players.map((r) => r.player_id) ?? [])
   const [search, setSearch] = useState('')
-  const [errors, setErrors] = useState<FieldErrors>({})
+  const { errors, setErrors, clearError } = useFieldErrors()
   const location = useLocation()
   const [saved, setSaved] = useState(() => !!(location.state as { justSaved?: boolean } | null)?.justSaved)
 
@@ -162,7 +164,11 @@ function ReviewForm({ review, event }: { review: ReviewWithPlayers | null; event
 
       <section className="card stack">
         <Field label="Fecha" error={errors.review_date}>
-          <input type="date" value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} className="input-auto" />
+          <input type="date" value={reviewDate} onChange={(e) => {
+              clearError('review_date')
+              setReviewDate(e.target.value)
+            }}
+            className="input-auto" />
         </Field>
         <Field
           label="¿Qué has visto? ¿Qué quieres resaltar?"
@@ -176,6 +182,7 @@ function ReviewForm({ review, event }: { review: ReviewWithPlayers | null; event
             placeholder="Escribe libremente: cómo ha ido el grupo, avances, preocupaciones, ideas para las próximas semanas…"
             onChange={(e) => {
               setSaved(false)
+              clearError('body')
               setBody(e.target.value)
             }}
           />
@@ -217,7 +224,7 @@ function ReviewForm({ review, event }: { review: ReviewWithPlayers | null; event
               return (
                 <li key={id}>
                   <button type="button" className="chip chip-on" onClick={() => toggle(id)} aria-label={`Quitar ${p ? playerName(p) : w.player}`}>
-                    {p ? playerName(p) : '…'} ✕
+                    {p ? playerName(p) : '…'} <CloseIcon size={14} />
                   </button>
                 </li>
               )

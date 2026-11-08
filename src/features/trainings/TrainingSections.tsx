@@ -5,6 +5,7 @@ import { upcomingTrainingDays } from '../../lib/defaults'
 import { useSport } from '../../sport/SportProvider'
 import { CategoryCards, DateChips, DurationChips, TimeChips } from '../../components/pickers'
 import { ErrorMessage, Field } from '../../components/ui'
+import { ArrowDownIcon, ArrowUpIcon, CloseIcon, DragIcon } from '../../components/icons'
 import { ExerciseThumb, TagChips, VideoPreview } from './ExerciseCard'
 import { ExercisePicker } from './ExercisePicker'
 import { exerciseFromLibrary, newExercise, type ExerciseRow, type TrainingFormApi } from './useTrainingForm'
@@ -108,7 +109,7 @@ export function ExercisesSection({ t }: { t: TrainingFormApi }) {
                 setDragOver(null)
               }}
             >
-              ⠿
+              <DragIcon size={18} />
             </span>
             <span className="exercise-num" aria-hidden="true">
               {i + 1}
@@ -166,13 +167,13 @@ export function ExercisesSection({ t }: { t: TrainingFormApi }) {
             </div>
             <div className="exercise-actions">
               <button type="button" className="icon-btn" aria-label="Subir" disabled={i === 0} onClick={() => t.moveExercise(i, -1)}>
-                ↑
+                <ArrowUpIcon />
               </button>
               <button type="button" className="icon-btn" aria-label="Bajar" disabled={i === exercises.length - 1} onClick={() => t.moveExercise(i, 1)}>
-                ↓
+                <ArrowDownIcon />
               </button>
               <button type="button" className="icon-btn icon-btn-danger" aria-label="Quitar ejercicio" onClick={() => t.removeExercise(ex.key)}>
-                ✕
+                <CloseIcon />
               </button>
             </div>
           </li>
