@@ -21,8 +21,9 @@ type Drag = { playerId: string; startX: number; startY: number; active: boolean 
  *  1) tocar un puesto y elegir de la lista,
  *  2) tocar a una persona de «Suplentes» y después el puesto,
  *  3) arrastrarla (ratón o dedo) a un puesto; entre puestos se intercambian.
+ * `readOnly` (partido finalizado): se ve la alineación, pero no se cambia hasta reabrir.
  */
-export function Lineup({ matchId, squad, sport }: { matchId: string; squad: SquadRow[]; sport: Sport }) {
+export function Lineup({ matchId, squad, sport, readOnly = false }: { matchId: string; squad: SquadRow[]; sport: Sport; readOnly?: boolean }) {
   const queryClient = useQueryClient()
   const w = wordsForSport(sport)
   const players = usePlayers(sport)
@@ -71,7 +72,7 @@ export function Lineup({ matchId, squad, sport }: { matchId: string; squad: Squa
   }
 
   function onSlotClick(slot: SlotId) {
-    if (justDragged.current) return
+    if (readOnly || justDragged.current) return
     if (selected) return place(selected, slot)
     setOpenSlot((cur) => (cur === slot ? null : slot))
   }
@@ -147,9 +148,11 @@ export function Lineup({ matchId, squad, sport }: { matchId: string; squad: Squa
         <p className="muted">Guarda primero la convocatoria para poder colocar a {w.thePl} {w.calledUpPl}.</p>
       ) : (
         <>
-          <p className="muted small">
-            Toca un puesto y elige quién juega, toca a alguien de «Suplentes» y luego el puesto, o arrástralo al campo.
-          </p>
+          {!readOnly && (
+            <p className="muted small">
+              Toca un puesto y elige quién juega, toca a alguien de «Suplentes» y luego el puesto, o arrástralo al campo.
+            </p>
+          )}
           <div className={`court court-${sport}`}>
             {sport === 'futsal' ? <FutsalCourt /> : <VolleyCourt />}
             {slots.map((s) => {
@@ -164,8 +167,9 @@ export function Lineup({ matchId, squad, sport }: { matchId: string; squad: Squa
                   style={{ left: `${s.x}%`, top: `${s.y}%` }}
                   aria-label={`${s.label}: ${name ?? 'vacío'}`}
                   aria-expanded={openSlot === s.id}
+                  disabled={readOnly}
                   onClick={() => onSlotClick(s.id)}
-                  {...(id ? dragHandlers(id) : {})}
+                  {...(id && !readOnly ? dragHandlers(id) : {})}
                 >
                   <span className="slot-token" aria-hidden="true">
                     {name ? initials(name) : s.id.startsWith('p') ? s.id.toUpperCase() : '+'}
@@ -215,15 +219,19 @@ export function Lineup({ matchId, squad, sport }: { matchId: string; squad: Squa
               <ul className="chips">
                 {bench.map((id) => (
                   <li key={id}>
-                    <button
-                      type="button"
-                      className={`chip bench-chip${selected === id ? ' chip-on' : ''}`}
-                      aria-pressed={selected === id}
-                      onClick={() => onBenchClick(id)}
-                      {...dragHandlers(id)}
-                    >
-                      <DragIcon size={14} /> {nameOf(id)}
-                    </button>
+                    {readOnly ? (
+                      <span className="chip chip-static">{nameOf(id)}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`chip bench-chip${selected === id ? ' chip-on' : ''}`}
+                        aria-pressed={selected === id}
+                        onClick={() => onBenchClick(id)}
+                        {...dragHandlers(id)}
+                      >
+                        <DragIcon size={14} /> {nameOf(id)}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -233,11 +241,13 @@ export function Lineup({ matchId, squad, sport }: { matchId: string; squad: Squa
 
           {save.isError && <ErrorMessage message={toMessage(save.error)} />}
           {saved && !dirty && <SuccessMessage>Alineación guardada.</SuccessMessage>}
-          <div>
-            <button type="button" className="btn btn-primary" disabled={save.isPending || !dirty} onClick={() => save.mutate()}>
-              {save.isPending ? 'Guardando…' : 'Guardar alineación'}
-            </button>
-          </div>
+          {!readOnly && (
+            <div>
+              <button type="button" className="btn btn-primary" disabled={save.isPending || !dirty} onClick={() => save.mutate()}>
+                {save.isPending ? 'Guardando…' : 'Guardar alineación'}
+              </button>
+            </div>
+          )}
         </>
       )}
       {ghost && (

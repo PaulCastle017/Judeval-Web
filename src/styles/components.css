@@ -201,6 +201,8 @@ a.chip-static { cursor: pointer; }
 }
 .category-card.on { border-color: var(--brand); background: var(--brand-tint); box-shadow: 0 0 0 1px var(--brand) inset; }
 .category-card .small { color: var(--text-muted); }
+.category-card:disabled { cursor: not-allowed; }
+.category-card:disabled:not(.on) { opacity: 0.5; }
 
 /* Asistente por pasos (Wizard.tsx) ------------------------------------------- */
 .wizard { display: flex; flex-direction: column; gap: var(--s3); }

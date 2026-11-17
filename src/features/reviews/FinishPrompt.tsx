@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
-import { useAuth } from '../../auth/AuthProvider'
 import { ConfirmButton, ErrorMessage } from '../../components/ui'
 import { newReviewLink, useEventContext, type EventKind } from './eventContext'
+import { useSetFinished } from './useSetFinished'
 
 const NOUN: Record<EventKind, string> = { training: 'entrenamiento', match: 'partido' }
 
@@ -13,40 +11,35 @@ const NOUN: Record<EventKind, string> = { training: 'entrenamiento', match: 'par
  * Finalizar un entrenamiento o partido. Al hacerlo ofrece «Añadir revisión ahora / Más tarde»
  * (tarjeta en la propia página, sin modales). Si ya está finalizado, permite reabrirlo.
  * `incomplete`: aviso si falta algo (lista sin pasar, partido sin resultado); no bloquea.
+ * `showReopen`: false cuando la página ya muestra el aviso de bloqueo con su propio «Reabrir para editar».
  */
 export function FinishPrompt({
   kind,
   eventId,
   finishedAt,
   incomplete,
+  showReopen = true,
 }: {
   kind: EventKind
   eventId: string
   finishedAt: string | null
   incomplete?: string | null
+  showReopen?: boolean
 }) {
-  const queryClient = useQueryClient()
-  const { profile } = useAuth()
   const ctx = useEventContext(kind, eventId)
   const [justFinished, setJustFinished] = useState(false)
   const [dismissed, setDismissed] = useState(false)
-  const table = kind === 'training' ? 'training_sessions' : 'matches'
-
-  const setFinished = useMutation({
-    mutationFn: async (finished: boolean) => {
-      const { error } = await supabase
-        .from(table)
-        .update({ finished_at: finished ? new Date().toISOString() : null, finished_by: finished ? (profile?.id ?? null) : null })
-        .eq('id', eventId)
-      if (error) throw error
-    },
-    onSuccess: async (_d, finished) => {
-      setJustFinished(finished)
-      setDismissed(false)
-      await queryClient.invalidateQueries({ queryKey: kind === 'training' ? ['sessions'] : ['matches'] })
-      await queryClient.invalidateQueries({ queryKey: ['reviews'] })
-    },
-  })
+  const mutation = useSetFinished(kind, eventId)
+  const setFinished = {
+    ...mutation,
+    mutate: (finished: boolean) =>
+      mutation.mutate(finished, {
+        onSuccess: () => {
+          setJustFinished(finished)
+          setDismissed(false)
+        },
+      }),
+  }
 
   const reviewId = ctx.data?.existingReviewId ?? null
   const isFinished = Boolean(finishedAt) || justFinished
@@ -110,9 +103,11 @@ export function FinishPrompt({
       <div className="row finish-done">
         <span className="badge badge-success">Finalizado ✓</span>
         {setFinished.isError && <ErrorMessage message={toMessage(setFinished.error)} />}
-        <ConfirmButton className="btn btn-ghost btn-small" confirmText="Sí, reabrir" onConfirm={() => setFinished.mutate(false)} disabled={setFinished.isPending}>
-          Reabrir
-        </ConfirmButton>
+        {showReopen && (
+          <ConfirmButton className="btn btn-ghost btn-small" confirmText="Sí, reabrir" onConfirm={() => setFinished.mutate(false)} disabled={setFinished.isPending}>
+            Reabrir
+          </ConfirmButton>
+        )}
       </div>
     </div>
   )

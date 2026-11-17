@@ -18,6 +18,10 @@ import { CommitmentsPage } from './features/commitments/CommitmentsPage'
 import { GuidePage } from './features/guide/GuidePage'
 import { AdminPage } from './features/admin/AdminPage'
 import { ProfilePage } from './features/profile/ProfilePage'
+import { CalendarPage } from './features/calendar/CalendarPage'
+import { EventDetailPage, NewEventPage } from './features/calendar/EventPages'
+import { MeetingsPage } from './features/meetings/MeetingsPage'
+import { MeetingDetailPage } from './features/meetings/MeetingDetailPage'
 
 export function App() {
   return (
@@ -52,6 +56,13 @@ export function App() {
           <Route path="asistencia/historial" element={<AttendanceHistoryPage />} />
           <Route path="revisiones" element={<ReviewsPage />} />
           <Route path="revisiones/:id" element={<ReviewDetailPage />} />
+          <Route path="calendario" element={<CalendarPage />} />
+          <Route path="calendario/nuevo" element={<NewEventPage />} />
+          <Route path="calendario/evento/:id" element={<EventDetailPage />} />
+          <Route path="reuniones" element={<MeetingsPage />} />
+          <Route path="reuniones/nueva" element={<MeetingDetailPage key="nueva" mode="nueva" />} />
+          <Route path="reuniones/:id" element={<MeetingDetailPage key="ver" mode="ver" />} />
+          <Route path="reuniones/:id/editar" element={<MeetingDetailPage key="editar" mode="editar" />} />
           <Route path="compromisos" element={<CommitmentsPage />} />
           <Route path="guia" element={<GuidePage />} />
           <Route path="perfil" element={<ProfilePage />} />

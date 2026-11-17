@@ -65,6 +65,11 @@
   --tag-juego_reducido-bg: #fff1c7;  --tag-juego_reducido-fg: #7a5a00;  --tag-juego_reducido-strong: #e0b100;
   --tag-vuelta_calma-bg: #dff5e7;    --tag-vuelta_calma-fg: #1f7a4d;    --tag-vuelta_calma-strong: #34a36a;
 
+  /* Calendario: color por tipo de evento */
+  --event-match: var(--brand);
+  --event-meeting: var(--info);
+  --event-other: #8a7f86;
+
   /* Campos de juego */
   --court-futsal: #2f7d57;
   --court-volley: #d9894a;

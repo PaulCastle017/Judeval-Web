@@ -9,11 +9,16 @@ export function CategoryCards({
   value,
   onChange,
   label = 'Categoría',
+  disabled = false,
+  hint,
 }: {
   categories: Tables<'categories'>[]
   value: string
   onChange: (id: string) => void
   label?: string
+  /** p. ej. entrenamiento con lista: ya no puede cambiar de categoría */
+  disabled?: boolean
+  hint?: string
 }) {
   return (
     <div className="pick-group">
@@ -22,7 +27,7 @@ export function CategoryCards({
       </span>
       <div className="category-cards" role="radiogroup" aria-labelledby="cat-cards-label">
         {categories.map((c) => (
-          <button key={c.id} type="button" role="radio" aria-checked={value === c.id} className={`category-card${value === c.id ? ' on' : ''}`} onClick={() => onChange(c.id)}>
+          <button key={c.id} type="button" role="radio" aria-checked={value === c.id} className={`category-card${value === c.id ? ' on' : ''}`} disabled={disabled} onClick={() => onChange(c.id)}>
             <strong>{c.name}</strong>
             {c.start_time && (
               <span className="small">
@@ -32,6 +37,7 @@ export function CategoryCards({
           </button>
         ))}
       </div>
+      {hint && <span className="field-hint">{hint}</span>}
     </div>
   )
 }

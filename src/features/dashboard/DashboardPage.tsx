@@ -25,7 +25,7 @@ import { readNumberPref, writeNumberPref, type Sport } from '../../sport/storage
 import { EmptyState, ErrorMessage, Spinner } from '../../components/ui'
 import { NoteForm } from '../players/Notes'
 import { PollReminder } from './PollReminder'
-import { UpcomingMatches } from './UpcomingMatches'
+import { UpcomingEvents } from './UpcomingEvents'
 import { PendingReviews } from './PendingReviews'
 
 const UPCOMING_DAYS = 14
@@ -49,7 +49,7 @@ export function DashboardPage() {
 
       <PollReminder sport={sport} />
       <UpcomingTrainings sport={sport} today={today} />
-      <UpcomingMatches sport={sport} today={today} />
+      <UpcomingEvents today={today} />
       <PendingReviews sport={sport} today={today} />
       <PendingFollowUps sport={sport} />
       <NoRecentNews sport={sport} today={today} userId={profile?.id ?? 'anon'} />
@@ -74,6 +74,8 @@ function UpcomingTrainings({ sport, today }: { sport: Sport; today: string }) {
               .in('category_id', ids)
               .gte('session_date', today)
               .lte('session_date', until)
+              // Los ya finalizados (aunque sean de hoy) dejan de estar «programados»
+              .is('finished_at', null)
               .order('session_date')
               .order('start_time', { nullsFirst: false })
               .limit(8),

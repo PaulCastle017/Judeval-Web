@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(113);
+select plan(150);
 
 -- Usuarios de prueba ---------------------------------------------------------------
 insert into auth.users (id, email, aud, role) values
@@ -168,7 +168,7 @@ reset role;
 
 -- PARTIDOS Y ENCUESTA DE WHATSAPP -------------------------------------------------
 insert into matches (id, category_id, match_date, opponent) values
-  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-00000000ca71', '2030-02-01', 'Rival');
+  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-00000000ca71', '2025-02-01', 'Rival');
 
 set local role anon;
 select throws_ok('select * from public.matches', '42501', null, 'anon no puede leer partidos');
@@ -278,7 +278,7 @@ reset role;
 select is((select count(*)::int from exercises where id = '00000000-0000-0000-0000-0000000000b1'), 0, 'el ejercicio queda borrado');
 
 -- FINALIZAR Y REVISIÓN VINCULADA -------------------------------------------------------
-insert into training_sessions (id, category_id, session_date) values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-00000000ca71', '2030-03-01');
+insert into training_sessions (id, category_id, session_date) values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-00000000ca71', '2025-03-01');
 
 set local role anon;
 select throws_ok($$update public.training_sessions set finished_at = now() where id = '00000000-0000-0000-0000-0000000000a7'$$, '42501', null, 'anon no puede finalizar entrenamientos');
@@ -304,6 +304,102 @@ reset role;
 
 delete from training_sessions where id = '00000000-0000-0000-0000-0000000000a7';
 select is((select training_session_id from staff_reviews where body = 'Editada'), null, 'al borrar el evento la revisión se conserva sin vínculo');
+
+-- INTEGRIDAD DE ENTRENAMIENTOS Y PARTIDOS (v7) -------------------------------------------
+insert into categories (id, name) values ('00000000-0000-0000-0000-00000000ca73', 'Test B');
+insert into players (id, category_id, first_name) values
+  ('00000000-0000-0000-0000-0000000000f9', '00000000-0000-0000-0000-00000000ca73', 'De otra categoría');
+insert into matches (id, category_id, match_date, opponent) values
+  ('00000000-0000-0000-0000-0000000000e4', '00000000-0000-0000-0000-00000000ca71', '2025-05-01', 'Rival Día'),
+  ('00000000-0000-0000-0000-0000000000e5', '00000000-0000-0000-0000-00000000ca71', '2030-05-01', 'Rival Futuro');
+insert into training_sessions (id, category_id, session_date) values
+  ('00000000-0000-0000-0000-0000000000a8', '00000000-0000-0000-0000-00000000ca71', '2025-04-01'),
+  ('00000000-0000-0000-0000-0000000000a9', '00000000-0000-0000-0000-00000000ca71', '2025-04-02'),
+  ('00000000-0000-0000-0000-0000000000aa', '00000000-0000-0000-0000-00000000ca71', '2030-04-03');
+insert into attendance (session_id, player_id, status) values
+  ('00000000-0000-0000-0000-0000000000a8', '00000000-0000-0000-0000-0000000000f1', 'presente');
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
+set local role authenticated;
+-- C1: convocados solo de la categoría del partido, y sin cambiar de categoría con convocatoria
+select throws_ok($$select public.set_match_squad('00000000-0000-0000-0000-0000000000e4', array['00000000-0000-0000-0000-0000000000f9']::uuid[])$$,
+  '23514', null, 'no se convoca a jugadores de otra categoría');
+select lives_ok($$select public.set_match_squad('00000000-0000-0000-0000-0000000000e4', array['00000000-0000-0000-0000-0000000000f1']::uuid[])$$,
+  'se convoca a jugadores de la categoría');
+select throws_ok($$update public.matches set category_id = '00000000-0000-0000-0000-00000000ca73' where id = '00000000-0000-0000-0000-0000000000e4'$$,
+  '23514', null, 'con convocatoria no se cambia la categoría del partido');
+select lives_ok($$update public.matches set category_id = '00000000-0000-0000-0000-00000000ca73' where id = '00000000-0000-0000-0000-0000000000e5'$$,
+  'sin convocatoria sí se cambia la categoría del partido');
+-- C2: entrenamiento con lista no cambia de categoría
+select throws_ok($$update public.training_sessions set category_id = '00000000-0000-0000-0000-00000000ca73' where id = '00000000-0000-0000-0000-0000000000a8'$$,
+  '23514', null, 'con lista no se cambia la categoría del entrenamiento');
+select lives_ok($$update public.training_sessions set category_id = '00000000-0000-0000-0000-00000000ca73' where id = '00000000-0000-0000-0000-0000000000a9'$$,
+  'sin lista sí se cambia la categoría del entrenamiento');
+-- C3: no se finaliza antes del día del evento
+select throws_ok($$update public.training_sessions set finished_at = now() where id = '00000000-0000-0000-0000-0000000000aa'$$,
+  '23514', null, 'no se finaliza un entrenamiento futuro');
+select throws_ok($$update public.matches set finished_at = now() where id = '00000000-0000-0000-0000-0000000000e5'$$,
+  '23514', null, 'no se finaliza un partido futuro');
+-- M5: día de partido en una sola transacción
+select lives_ok($$select public.save_match_day('00000000-0000-0000-0000-0000000000e4', '{"00000000-0000-0000-0000-0000000000f1": "presente"}', 2::smallint, 0::smallint, null)$$,
+  'save_match_day guarda asistencia y resultado');
+select is((select status::text from match_players where match_id = '00000000-0000-0000-0000-0000000000e4'), 'presente', 'la asistencia queda guardada');
+select is((select goals_for::int from matches where id = '00000000-0000-0000-0000-0000000000e4'), 2, 'el resultado queda guardado');
+select throws_ok($$select public.save_match_day('00000000-0000-0000-0000-0000000000e4', '{"00000000-0000-0000-0000-0000000000f1": null, "00000000-0000-0000-0000-0000000000f9": "presente"}', 5::smallint, 5::smallint, null)$$,
+  '23503', null, 'save_match_day rechaza a quien no está convocado');
+select is((select goals_for::int from matches where id = '00000000-0000-0000-0000-0000000000e4'), 2, 'si algo falla no se guarda nada (resultado intacto)');
+select is((select status::text from match_players where match_id = '00000000-0000-0000-0000-0000000000e4'), 'presente', 'si algo falla no se guarda nada (asistencia intacta)');
+reset role;
+
+-- CALENDARIO Y ACTAS ---------------------------------------------------------------------
+set local role anon;
+select throws_ok($$select count(*) from public.calendar_events$$, '42501', null, 'anon no ve el calendario');
+select throws_ok($$select count(*) from public.meetings$$, '42501', null, 'anon no ve las actas');
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
+set local role authenticated;
+select lives_ok($$insert into public.calendar_events (id, title, kind, event_date, start_time, end_time)
+  values ('00000000-0000-0000-0000-00000000ee01', 'Reunión de la Estructura', 'reunion', '2030-06-01', '19:00', '20:30')$$, 'coach: crea un evento');
+select is((select created_by from calendar_events where id = '00000000-0000-0000-0000-00000000ee01'), '00000000-0000-0000-0000-0000000000c1'::uuid, 'el autor queda registrado');
+select throws_ok($$insert into public.calendar_events (title, event_date, start_time, end_time) values ('Mal', '2030-06-02', '20:00', '19:00')$$,
+  '23514', null, 'la hora de fin debe ser posterior a la de inicio');
+select lives_ok($$insert into public.meetings (id, title, meeting_date, event_id, sections)
+  values ('00000000-0000-0000-0000-00000000aa01', 'Acta de junio', '2030-06-01', '00000000-0000-0000-0000-00000000ee01', '[{"title": "Temporada", "body": "…"}]')$$, 'coach: redacta un acta vinculada');
+select throws_ok($$insert into public.meetings (title, meeting_date, sections) values ('Mal', '2030-06-01', '{"a": 1}')$$, '23514', null, 'el índice debe ser una lista');
+select lives_ok($$insert into public.meetings (id, title, meeting_date) values ('00000000-0000-0000-0000-00000000aa02', 'Acta suelta', '2030-06-05')$$, 'coach: redacta un acta sin evento');
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c2","role":"authenticated"}', true);
+set local role authenticated;
+select is((select count(*)::int from public.calendar_events where id = '00000000-0000-0000-0000-00000000ee01'), 1, 'otro coach ve el evento');
+select lives_ok($$update public.calendar_events set title = 'Reunión (editada)' where id = '00000000-0000-0000-0000-00000000ee01'$$, 'otro coach edita el evento');
+select lives_ok($$update public.meetings set summary = 'Resumen añadido' where id = '00000000-0000-0000-0000-00000000aa01'$$, 'otro coach edita el acta');
+select is((select updated_by from public.meetings where id = '00000000-0000-0000-0000-00000000aa01'), '00000000-0000-0000-0000-0000000000c2'::uuid, 'queda quién editó el acta por última vez');
+select lives_ok($$delete from public.calendar_events where id = '00000000-0000-0000-0000-00000000ee01'$$, 'otro coach intenta borrar el evento');
+select lives_ok($$delete from public.meetings where id = '00000000-0000-0000-0000-00000000aa02'$$, 'otro coach intenta borrar el acta');
+reset role;
+select is((select title from calendar_events where id = '00000000-0000-0000-0000-00000000ee01'), 'Reunión (editada)', 'otro coach no puede borrar un evento ajeno');
+select is((select count(*)::int from meetings where id = '00000000-0000-0000-0000-00000000aa02'), 1, 'otro coach no puede borrar un acta ajena');
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000d1","role":"authenticated"}', true);
+set local role authenticated;
+select is((select count(*)::int from public.calendar_events), 0, 'una cuenta desactivada no ve el calendario');
+select is((select count(*)::int from public.meetings), 0, 'una cuenta desactivada no ve las actas');
+reset role;
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}', true);
+set local role authenticated;
+select lives_ok($$delete from public.meetings where id = '00000000-0000-0000-0000-00000000aa02'$$, 'el autor borra su acta');
+reset role;
+select is((select count(*)::int from meetings where id = '00000000-0000-0000-0000-00000000aa02'), 0, 'el acta queda borrada');
+
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+set local role authenticated;
+select lives_ok($$delete from public.calendar_events where id = '00000000-0000-0000-0000-00000000ee01'$$, 'admin: borra un evento ajeno');
+reset role;
+select is((select count(*)::int from calendar_events where id = '00000000-0000-0000-0000-00000000ee01'), 0, 'el evento queda borrado');
+select is((select event_id from meetings where id = '00000000-0000-0000-0000-00000000aa01'), null, 'al borrar el evento, el acta se conserva sin vínculo');
 
 select * from finish();
 rollback;

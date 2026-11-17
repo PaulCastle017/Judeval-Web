@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { unwrap, useCategories } from '../../lib/queries'
 import { endTime, formatTime, relativeDayLabel, SPORT_EMOJI, todayISO } from '../../lib/format'
 import { parseExercises } from '../../lib/validation'
+import { TRAINING_STATUS, trainingStatus } from '../../lib/eventStatus'
 import { useSport } from '../../sport/SportProvider'
 import { Badge, EmptyState, ErrorMessage, PageHeader, Spinner, SuccessMessage } from '../../components/ui'
 import type { Json, Tables } from '../../types/database'
@@ -35,6 +37,8 @@ export function TrainingsPage() {
   const categoryFilter = categories.data?.some((c) => c.id === requested) ? requested : ''
   const ids = categoryFilter ? [categoryFilter] : (categories.data?.map((c) => c.id) ?? [])
   const today = todayISO()
+  // «Anteriores» de 20 en 20 («Ver más»): antes se cortaba en 20 sin aviso
+  const [pastLimit, setPastLimit] = useState(20)
 
   const upcoming = useQuery({
     enabled: categories.isSuccess,
@@ -47,14 +51,17 @@ export function TrainingsPage() {
               .from('training_sessions')
               .select(SELECT)
               .in('category_id', ids)
+              // Próximo: de hoy en adelante y sin finalizar (uno de hoy ya finalizado pasa a «Anteriores»)
               .gte('session_date', today)
+              .is('finished_at', null)
               .order('session_date')
               .order('start_time', { nullsFirst: false }),
           ),
   })
   const past = useQuery({
     enabled: categories.isSuccess,
-    queryKey: ['sessions', 'trainings', 'past', sport, categoryFilter, today],
+    queryKey: ['sessions', 'trainings', 'past', sport, categoryFilter, today, pastLimit],
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<TrainingRow[]> =>
       ids.length === 0
         ? []
@@ -63,9 +70,9 @@ export function TrainingsPage() {
               .from('training_sessions')
               .select(SELECT)
               .in('category_id', ids)
-              .lt('session_date', today)
+              .or(`session_date.lt.${today},finished_at.not.is.null`)
               .order('session_date', { ascending: false })
-              .limit(20),
+              .limit(pastLimit),
           ),
   })
 
@@ -186,6 +193,11 @@ export function TrainingsPage() {
                   <TrainingCard key={t.id} training={t} categories={categories.data ?? []} today={today} />
                 ))}
               </div>
+              {past.data?.length === pastLimit && (
+                <button type="button" className="btn btn-ghost" disabled={past.isFetching} onClick={() => setPastLimit((n) => n + 20)}>
+                  {past.isFetching ? 'Cargando…' : 'Ver más'}
+                </button>
+              )}
             </section>
           )}
         </>
@@ -199,13 +211,14 @@ function TrainingCard({ training: t, categories, today }: { training: TrainingRo
   const exercises = parseExercises(t.exercises)
   const listTaken = (t.attendance[0]?.count ?? 0) > 0
   const canTakeList = t.session_date <= today
+  const status = trainingStatus({ ...t, hasList: listTaken }, today)
 
   return (
     <article className="card training-card">
       <header className="training-card-head">
         <span className="training-day">{relativeDayLabel(t.session_date, today)}</span>
         <span className="row-tight">
-          {t.finished_at ? <Badge tone="success">Finalizado ✓</Badge> : listTaken && <Badge tone="success">Lista pasada ✓</Badge>}
+          {status !== 'programado' && <Badge tone={TRAINING_STATUS[status].tone}>{TRAINING_STATUS[status].label}</Badge>}
           {t.finished_at && t.staff_reviews.length === 0 && <Badge tone="warn">Sin revisión</Badge>}
         </span>
       </header>

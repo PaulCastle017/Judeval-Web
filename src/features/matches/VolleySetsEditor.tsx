@@ -9,11 +9,14 @@ export function VolleySetsEditor({
   rows,
   opponent,
   error,
+  readOnly = false,
   onChange,
 }: {
   rows: SetRow[]
   opponent: string
   error?: string
+  /** Partido finalizado: se ve el resultado, pero no se cambia hasta reabrir */
+  readOnly?: boolean
   onChange: (rows: SetRow[]) => void
 }) {
   const visible = setsToShow(rows)
@@ -45,6 +48,7 @@ export function VolleySetsEditor({
               className="score-input set-input"
               aria-label={`Set ${i + 1}: puntos de JUDEVAL`}
               value={r.for}
+              readOnly={readOnly}
               onChange={(e) => setCell(i, 'for', e.target.value)}
             />
             <input
@@ -52,6 +56,7 @@ export function VolleySetsEditor({
               className="score-input set-input"
               aria-label={`Set ${i + 1}: puntos de ${opponent}`}
               value={r.against}
+              readOnly={readOnly}
               onChange={(e) => setCell(i, 'against', e.target.value)}
             />
           </div>

@@ -128,6 +128,45 @@ export const matchSchema = z.object({
   notes: optionalText(2000),
 })
 
+// Evento del calendario compartido (los partidos tienen su propio formulario)
+export const calendarEventSchema = z
+  .object({
+    title: z.string().trim().min(1, 'Ponle un título').max(120, 'Máximo 120 caracteres'),
+    kind: z.enum(['reunion', 'otro']),
+    // '' = club (los dos deportes)
+    sport: z
+      .enum(['', 'futsal', 'voley'])
+      .transform((v) => (v === '' ? null : v)),
+    event_date: date,
+    start_time: optionalTime,
+    end_time: optionalTime,
+    location: optionalText(200),
+    notes: optionalText(2000),
+  })
+  .refine((v) => !v.end_time || (v.start_time !== null && v.end_time > v.start_time), {
+    path: ['end_time'],
+    message: 'La hora de fin debe ser posterior a la de inicio',
+  })
+
+// Acta de una reunión: índice (puntos con título y texto) + texto global
+export const meetingSectionSchema = z.object({
+  title: z.string().trim().min(1, 'Pon título al punto').max(120, 'Máximo 120 caracteres'),
+  body: z.string().trim().max(8000, 'Máximo 8000 caracteres'),
+})
+export const meetingSchema = z.object({
+  title: z.string().trim().min(1, 'Ponle un título').max(160, 'Máximo 160 caracteres'),
+  meeting_date: date,
+  summary: z.string().trim().max(8000, 'Máximo 8000 caracteres'),
+  sections: z.array(meetingSectionSchema).max(30, 'Máximo 30 puntos'),
+})
+export type MeetingSection = z.infer<typeof meetingSectionSchema>
+
+/** Lee la columna jsonb `sections`; si algo no encaja, lista vacía en vez de romper la pantalla. */
+export function parseSections(value: unknown): MeetingSection[] {
+  const result = z.array(z.object({ title: z.string(), body: z.string() })).safeParse(value)
+  return result.success ? result.data : []
+}
+
 export const matchResultSchema = z
   .object({
     goals_for: optionalInt(0, 99, 'Marcador no válido'),

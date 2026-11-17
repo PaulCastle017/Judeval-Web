@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { unwrap, useCategories } from '../../lib/queries'
 import { formatTime, relativeDayLabel, SPORT_EMOJI, todayISO } from '../../lib/format'
@@ -7,6 +8,7 @@ import { useSport } from '../../sport/SportProvider'
 import { useWords } from '../../i18n/useWords'
 import { Badge, EmptyState, ErrorMessage, PageHeader, Spinner } from '../../components/ui'
 import { MatchResultBadge } from './MatchResultBadge'
+import { MATCH_STATUS, matchStatus } from '../../lib/eventStatus'
 import type { Tables } from '../../types/database'
 
 export type MatchRow = Pick<
@@ -25,6 +27,8 @@ export function MatchesPage() {
   const categoryFilter = categories.data?.some((c) => c.id === requested) ? requested : ''
   const ids = categoryFilter ? [categoryFilter] : (categories.data?.map((c) => c.id) ?? [])
   const today = todayISO()
+  // «Jugados» de 30 en 30 («Ver más»): antes se cortaba en 30 sin aviso
+  const [pastLimit, setPastLimit] = useState(30)
 
   const upcoming = useQuery({
     enabled: categories.isSuccess,
@@ -47,7 +51,8 @@ export function MatchesPage() {
   })
   const past = useQuery({
     enabled: categories.isSuccess,
-    queryKey: ['matches', 'past', sport, categoryFilter, today],
+    queryKey: ['matches', 'past', sport, categoryFilter, today, pastLimit],
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<MatchRow[]> =>
       ids.length === 0
         ? []
@@ -59,7 +64,7 @@ export function MatchesPage() {
               // Jugado: fecha pasada, o con resultado, o finalizado
               .or(`match_date.lt.${today},finished_at.not.is.null,goals_for.not.is.null`)
               .order('match_date', { ascending: false })
-              .limit(30),
+              .limit(pastLimit),
           ),
   })
 
@@ -127,6 +132,11 @@ export function MatchesPage() {
             <MatchCard key={m.id} match={m} categories={categories.data ?? []} today={today} />
           ))}
         </div>
+        {past.data?.length === pastLimit && (
+          <button type="button" className="btn btn-ghost" disabled={past.isFetching} onClick={() => setPastLimit((n) => n + 30)}>
+            {past.isFetching ? 'Cargando…' : 'Ver más'}
+          </button>
+        )}
       </section>
     </div>
   )
@@ -136,6 +146,7 @@ export function MatchCard({ match: m, categories, today }: { match: MatchRow; ca
   const w = useWords()
   const category = categories.find((c) => c.id === m.category_id)
   const calledUp = m.match_players[0]?.count ?? 0
+  const status = matchStatus(m, today)
 
   return (
     <Link to={`/partidos/${m.id}`} className={`card training-card match-card match-${m.venue}`}>
@@ -146,7 +157,7 @@ export function MatchCard({ match: m, categories, today }: { match: MatchRow; ca
         </span>
         <span className="row-tight">
           <MatchResultBadge goalsFor={m.goals_for} goalsAgainst={m.goals_against} />
-          {m.finished_at && <Badge tone="success">Finalizado ✓</Badge>}
+          {status !== 'programado' && <Badge tone={MATCH_STATUS[status].tone}>{MATCH_STATUS[status].label}</Badge>}
           {m.finished_at && m.staff_reviews.length === 0 && <Badge tone="warn">Sin revisión</Badge>}
         </span>
       </header>

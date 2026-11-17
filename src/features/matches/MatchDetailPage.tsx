@@ -10,17 +10,21 @@ import { useFieldErrors } from '../../lib/useFieldErrors'
 import { useAuth } from '../../auth/AuthProvider'
 import { useSport } from '../../sport/SportProvider'
 import { labelsForSport, wordsForSport } from '../../i18n/useWords'
-import { ConfirmButton, ErrorMessage, Field, Spinner, SuccessMessage } from '../../components/ui'
+import { Badge, ConfirmButton, ErrorMessage, Field, Spinner, SuccessMessage } from '../../components/ui'
+import { MATCH_STATUS, matchStatus } from '../../lib/eventStatus'
 import { Segmented } from '../../components/pickers'
 import { MatchResultBadge } from './MatchResultBadge'
-import type { Enums, Tables, TablesUpdate } from '../../types/database'
-import { parseSetRows, parseSets, type SetRow } from '../../lib/volley'
+import type { Enums, Tables } from '../../types/database'
+import { parseSetRows, parseSets, type SetRow, type VolleySet } from '../../lib/volley'
 import { VolleySetsEditor } from './VolleySetsEditor'
 import { Lineup } from './Lineup'
 import { NewMatchWizard } from './NewMatchWizard'
 import { rememberMatch } from '../../lib/defaults'
 import { useIsMobileOnMount } from '../../components/mobile/useIsMobile'
 import { FinishPrompt } from '../reviews/FinishPrompt'
+import { LockedNotice } from '../reviews/LockedNotice'
+import { inRoster } from '../../lib/roster'
+import { useMatchConflict } from './useMatchConflict'
 import { EventReviewLink } from '../reviews/EventReviewLink'
 
 type MatchPlayer = Pick<Tables<'match_players'>, 'player_id' | 'status' | 'comment' | 'lineup_slot'>
@@ -78,11 +82,12 @@ export function MatchDetailPage() {
       <MatchForm key={m?.id ?? 'nuevo'} match={m} categories={sportCategories} />
       {m && justCreated && <NextStepHint />}
       {m && <EventReviewLink kind="match" eventId={m.id} />}
-      {/* Claves estables: recargar tras guardar no debe remontar (se perdería el aviso de guardado).
-          El día de partido solo se reinicia si cambia la convocatoria. */}
-      {m && <MatchSquad key={`squad-${m.id}`} match={m} sport={matchSport} />}
-      {m && <Lineup key={`lineup-${squadKey(m)}`} matchId={m.id} squad={m.match_players} sport={matchSport} />}
-      {m && m.match_date <= todayISO() && <MatchDay key={`day-${squadKey(m)}`} match={m} sport={matchSport} />}
+      {m?.finished_at && <LockedNotice kind="match" eventId={m.id} what="convocatoria, alineación, asistencia y resultado están" />}
+      {/* Claves estables: recargar tras guardar no debe remontar (se perdería el aviso de guardado
+          o lo que se esté escribiendo en «Día de partido»). La alineación sí se reinicia si cambia la convocatoria. */}
+      {m && <MatchSquad key={`squad-${m.id}`} match={m} sport={matchSport} readOnly={Boolean(m.finished_at)} />}
+      {m && <Lineup key={`lineup-${squadKey(m)}`} matchId={m.id} squad={m.match_players} sport={matchSport} readOnly={Boolean(m.finished_at)} />}
+      {m && m.match_date <= todayISO() && <MatchDay key={`day-${m.id}`} match={m} sport={matchSport} readOnly={Boolean(m.finished_at)} />}
     </div>
   )
 }
@@ -114,6 +119,9 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
   // Partido ya creado: los datos se muestran plegados (resumen + «Editar datos») para que convocatoria,
   // alineación y día de partido queden arriba; en un alta, el formulario está abierto
   const [editing, setEditing] = useState(!match)
+  // Con convocatoria no se cambia de categoría (los convocados quedarían fuera de ella; la BD también lo impide)
+  const categoryLocked = (match?.match_players.length ?? 0) > 0
+  const duplicate = useMatchConflict(form.category_id, form.match_date, match?.id ?? null)
 
   const save = useMutation({
     mutationFn: async (values: ReturnType<typeof matchSchema.parse>) => {
@@ -161,12 +169,13 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
           {match && (
             <p className="muted">
               {formatLongDate(match.match_date)}{' '}
-              <MatchResultBadge goalsFor={match.goals_for} goalsAgainst={match.goals_against} sets={parseSets(match.sets)} />
+              <MatchResultBadge goalsFor={match.goals_for} goalsAgainst={match.goals_against} sets={parseSets(match.sets)} />{' '}
+              <Badge tone={MATCH_STATUS[matchStatus(match, todayISO())].tone}>{MATCH_STATUS[matchStatus(match, todayISO())].label}</Badge>
             </p>
           )}
         </div>
         {match && (isAdmin || match.created_by === profile?.id) && (
-          <ConfirmButton onConfirm={() => remove.mutate()} confirmText="Borrar partido (y su convocatoria)" disabled={remove.isPending}>
+          <ConfirmButton onConfirm={() => remove.mutate()} confirmText="Borrar partido y convocatoria (la revisión se conserva)" disabled={remove.isPending}>
             Borrar
           </ConfirmButton>
         )}
@@ -196,8 +205,12 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
       {editing && (
         <>
           <div className="grid-3">
-            <Field label="Categoría *" error={errors.category_id}>
-              <select value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>
+            <Field
+              label="Categoría *"
+              error={errors.category_id}
+              hint={categoryLocked ? 'Con convocatoria no se cambia la categoría: vacía antes la convocatoria.' : undefined}
+            >
+              <select value={form.category_id} disabled={categoryLocked} onChange={(e) => set('category_id', e.target.value)}>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -234,6 +247,11 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
             <textarea rows={2} maxLength={2000} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
           </Field>
 
+          {duplicate && (
+            <p className="small text-warn" role="status">
+              ⚠ Ya hay un partido de esa categoría ese día (vs {duplicate.opponent}). Si es un torneo, puedes seguir.
+            </p>
+          )}
           {save.isError && <ErrorMessage message={toMessage(save.error)} />}
           <div className="row">
             <button className="btn btn-primary" disabled={save.isPending}>
@@ -257,7 +275,7 @@ function MatchForm({ match, categories }: { match: MatchWithSquad | null; catego
 // Convocatoria
 // ---------------------------------------------------------------------------
 
-function MatchSquad({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport_type'> }) {
+function MatchSquad({ match, sport, readOnly }: { match: MatchWithSquad; sport: Enums<'sport_type'>; readOnly: boolean }) {
   const queryClient = useQueryClient()
   const w = wordsForSport(sport)
   const labels = labelsForSport(sport)
@@ -267,9 +285,17 @@ function MatchSquad({ match, sport }: { match: MatchWithSquad; sport: Enums<'spo
   const [saved, setSaved] = useState(false)
 
   const roster = useMemo(
-    () => (players.data ?? []).filter((p) => p.category_id === match.category_id && p.status !== 'baja'),
+    () => (players.data ?? []).filter((p) => inRoster(p, match.category_id)),
     [players.data, match.category_id],
   )
+  // Convocados que ya no están en la plantilla (baja o cambio de categoría después de convocarlos):
+  // se muestran aparte para poder quitarlos (antes eran invisibles pero seguían contando)
+  const rosterIds = new Set(roster.map((p) => p.id))
+  const outsiders = selected.filter((id) => !rosterIds.has(id))
+  const outsiderName = (id: string) => {
+    const p = players.data?.find((x) => x.id === id)
+    return p ? playerName(p) : '…'
+  }
   const term = normalize(search.trim())
   const visible = roster.filter((p) => !term || normalize(`${p.first_name} ${p.last_name} ${p.display_name}`).includes(term))
   const original = new Set(match.match_players.map((p) => p.player_id))
@@ -296,6 +322,7 @@ function MatchSquad({ match, sport }: { match: MatchWithSquad; sport: Enums<'spo
         <h2>
           📋 Convocatoria · {selected.length} {selected.length === 1 ? w.calledUp : w.calledUpPl}
         </h2>
+        {!readOnly && (
         <span className="row-tight">
           <button
             type="button"
@@ -318,11 +345,12 @@ function MatchSquad({ match, sport }: { match: MatchWithSquad; sport: Enums<'spo
             Quitar a {w.all}
           </button>
         </span>
+        )}
       </div>
       <p className="muted small">
         «Convocar a {w.all}» no incluye a {w.thePl} {w.injuredPl}; puedes añadirlos a mano.
       </p>
-      {roster.length > 8 && (
+      {roster.length > 8 && !readOnly && (
         <input type="search" placeholder={`Buscar ${w.player}…`} value={search} onChange={(e) => setSearch(e.target.value)} />
       )}
       {players.isPending && <Spinner />}
@@ -333,7 +361,7 @@ function MatchSquad({ match, sport }: { match: MatchWithSquad; sport: Enums<'spo
           const on = selected.includes(p.id)
           return (
             <li key={p.id}>
-              <button type="button" className={`chip${on ? ' chip-on' : ''}`} aria-pressed={on} onClick={() => toggle(p.id)}>
+              <button type="button" className={`chip${on ? ' chip-on' : ''}`} aria-pressed={on} disabled={readOnly} onClick={() => toggle(p.id)}>
                 {on ? '✓ ' : '+ '}
                 {playerName(p)}
                 {p.status === 'lesionado' && <span className={on ? '' : 'muted small'}> · {labels.status.lesionado.toLowerCase()}</span>}
@@ -342,6 +370,22 @@ function MatchSquad({ match, sport }: { match: MatchWithSquad; sport: Enums<'spo
           )
         })}
       </ul>
+      {outsiders.length > 0 && (
+        <div className="stack-sm">
+          <p className="small text-warn">
+            En la convocatoria, pero ya fuera de la plantilla de esta categoría (baja u otra categoría). Toca para quitar de la convocatoria:
+          </p>
+          <ul className="chips">
+            {outsiders.map((id) => (
+              <li key={id}>
+                <button type="button" className="chip chip-on" aria-pressed="true" disabled={readOnly} onClick={() => toggle(id)}>
+                  ✓ {outsiderName(id)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {selected.length > SQUAD_WARNING[sport] && (
         <p className="small text-warn">
           Hay {selected.length} {w.calledUpPl}: más de lo habitual ({SQUAD_WARNING[sport]}). Revisa el máximo que permite la competición.
@@ -355,11 +399,13 @@ function MatchSquad({ match, sport }: { match: MatchWithSquad; sport: Enums<'spo
       )}
       {save.isError && <ErrorMessage message={toMessage(save.error)} />}
       {saved && !dirty && <SuccessMessage>Convocatoria guardada.</SuccessMessage>}
-      <div>
-        <button type="button" className="btn btn-primary" disabled={save.isPending || !dirty} onClick={() => save.mutate()}>
-          {save.isPending ? 'Guardando…' : 'Guardar convocatoria'}
-        </button>
-      </div>
+      {!readOnly && (
+        <div>
+          <button type="button" className="btn btn-primary" disabled={save.isPending || !dirty} onClick={() => save.mutate()}>
+            {save.isPending ? 'Guardando…' : 'Guardar convocatoria'}
+          </button>
+        </div>
+      )}
     </section>
   )
 }
@@ -368,7 +414,7 @@ function MatchSquad({ match, sport }: { match: MatchWithSquad; sport: Enums<'spo
 // Día de partido: asistencia de los convocados y resultado
 // ---------------------------------------------------------------------------
 
-function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport_type'> }) {
+function MatchDay({ match, sport, readOnly }: { match: MatchWithSquad; sport: Enums<'sport_type'>; readOnly: boolean }) {
   const queryClient = useQueryClient()
   const w = wordsForSport(sport)
   const labels = labelsForSport(sport)
@@ -380,9 +426,10 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
     ),
   )
 
-  const [marks, setMarks] = useState<Record<string, Status | null>>(() =>
-    Object.fromEntries(match.match_players.map((p) => [p.player_id, p.status])),
-  )
+  // Solo lo que se toca a mano; el resto sale de lo guardado. Así, al cambiar la convocatoria no se
+  // pierde lo que se estaba escribiendo y los recién convocados aparecen sin remontar la sección.
+  const [marks, setMarks] = useState<Record<string, Status | null>>({})
+  const markOf = (p: MatchPlayer) => (p.player_id in marks ? marks[p.player_id] : p.status)
   const [score, setScore] = useState({ goals_for: match.goals_for?.toString() ?? '', goals_against: match.goals_against?.toString() ?? '' })
   // Voley: 5 filas (solo se muestran las que hacen falta), rellenas con los sets guardados
   const [setRows, setSetRows] = useState<SetRow[]>(() => {
@@ -392,12 +439,18 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saved, setSaved] = useState(false)
 
+  // Asistencia y resultado en una sola transacción (save_match_day): o se guarda todo o nada
   const save = useMutation({
-    mutationFn: async (result: TablesUpdate<'matches'>) => {
-      const rows = squad.map((p) => ({ match_id: match.id, player_id: p.player_id, status: marks[p.player_id] ?? null }))
-      if (rows.length) unwrap(await supabase.from('match_players').upsert(rows, { onConflict: 'match_id,player_id' }))
-      unwrap(await supabase.from('matches').update(result).eq('id', match.id).select('id').single())
-    },
+    mutationFn: async (result: { goals_for?: number | null; goals_against?: number | null; sets?: VolleySet[] | null }) =>
+      unwrap(
+        await supabase.rpc('save_match_day', {
+          p_match_id: match.id,
+          p_marks: Object.fromEntries(squad.map((p) => [p.player_id, markOf(p) ?? null])),
+          p_goals_for: result.goals_for ?? undefined,
+          p_goals_against: result.goals_against ?? undefined,
+          p_sets: result.sets ?? undefined,
+        }),
+      ),
     onSuccess: async () => {
       setSaved(true)
       await queryClient.invalidateQueries({ queryKey: ['matches'] })
@@ -411,7 +464,7 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
       if (!parsed.ok) return setErrors({ sets: parsed.error })
       setErrors({})
       // Los sets ganados (goals_for / goals_against) los calcula la base de datos
-      return save.mutate(parsed.sets ? { sets: parsed.sets } : { sets: null, goals_for: null, goals_against: null })
+      return save.mutate({ sets: parsed.sets })
     }
     const parsed = parseForm(matchResultSchema, score)
     if (!parsed.ok) return setErrors(parsed.errors)
@@ -428,6 +481,7 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
         {sport === 'voley' ? (
           <VolleySetsEditor
             rows={setRows}
+            readOnly={readOnly}
             opponent={match.opponent}
             error={errors.sets}
             onChange={(rows) => {
@@ -441,6 +495,7 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
             <input
               inputMode="numeric"
               className="score-input"
+              readOnly={readOnly}
               value={score.goals_for}
               onChange={(e) => {
                 setSaved(false)
@@ -455,6 +510,7 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
             <input
               inputMode="numeric"
               className="score-input"
+              readOnly={readOnly}
               value={score.goals_against}
               onChange={(e) => {
                 setSaved(false)
@@ -486,12 +542,13 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
                         key={s}
                         type="button"
                         role="radio"
-                        aria-checked={marks[p.player_id] === s}
+                        aria-checked={markOf(p) === s}
                         title={labels.attendance[s]}
-                        className={`toggle toggle-${s}${marks[p.player_id] === s ? ' on' : ''}`}
+                        className={`toggle toggle-${s}${markOf(p) === s ? ' on' : ''}`}
+                        disabled={readOnly}
                         onClick={() => {
                           setSaved(false)
-                          setMarks((m) => ({ ...m, [p.player_id]: m[p.player_id] === s ? null : s }))
+                          setMarks((m) => ({ ...m, [p.player_id]: markOf(p) === s ? null : s }))
                         }}
                       >
                         {SHORT[s]}
@@ -508,16 +565,19 @@ function MatchDay({ match, sport }: { match: MatchWithSquad; sport: Enums<'sport
 
       {save.isError && <ErrorMessage message={toMessage(save.error)} />}
       {saved && <SuccessMessage>Asistencia y resultado guardados.</SuccessMessage>}
-      <div>
-        <button type="button" className="btn btn-primary" onClick={onSave} disabled={save.isPending}>
-          {save.isPending ? 'Guardando…' : 'Guardar asistencia y resultado'}
-        </button>
-      </div>
+      {!readOnly && (
+        <div>
+          <button type="button" className="btn btn-primary" onClick={onSave} disabled={save.isPending}>
+            {save.isPending ? 'Guardando…' : 'Guardar asistencia y resultado'}
+          </button>
+        </div>
+      )}
       <FinishPrompt
         kind="match"
         eventId={match.id}
         finishedAt={match.finished_at}
         incomplete={match.goals_for === null ? 'El partido aún no tiene resultado.' : null}
+        showReopen={!readOnly}
       />
     </section>
   )

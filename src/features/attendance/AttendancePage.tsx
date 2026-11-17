@@ -10,6 +10,8 @@ import { useSport } from '../../sport/SportProvider'
 import { useLabels, useWords } from '../../i18n/useWords'
 import { ExerciseThumb } from '../trainings/ExerciseCard'
 import { FinishPrompt } from '../reviews/FinishPrompt'
+import { LockedNotice } from '../reviews/LockedNotice'
+import { inRoster } from '../../lib/roster'
 import { useAuth } from '../../auth/AuthProvider'
 import { ConfirmButton, EmptyState, ErrorMessage, Field, PageHeader, Spinner, SuccessMessage } from '../../components/ui'
 import type { Enums, Tables } from '../../types/database'
@@ -109,27 +111,43 @@ function SessionLoader({ category, date }: { category: Tables<'categories'>; dat
 
   const saved = session.data?.attendance ?? []
   const savedIds = new Set(saved.map((a) => a.player_id))
-  // Jugadores de la categoría (sin bajas) + cualquiera que ya figure en la lista guardada
-  const roster = players.data.filter((p) => (p.category_id === category.id && p.status !== 'baja' && p.active) || savedIds.has(p.id))
+  // Jugadores de la plantilla + cualquiera que ya figure en la lista guardada
+  const roster = players.data.filter((p) => inRoster(p, category.id) || savedIds.has(p.id))
+  const locked = Boolean(session.data?.finished_at)
+
+  // Día futuro (p. ej. desde un enlace con ?fecha=): se ve el plan, pero la lista se pasa ese día
+  if (date > todayISO()) {
+    return (
+      <>
+        {session.data && <TrainingPlan session={session.data} />}
+        <p className="alert alert-info" role="status">
+          📅 Es un día futuro: podrás pasar lista y finalizar el entrenamiento el {formatLongDate(date).toLowerCase()}.
+        </p>
+      </>
+    )
+  }
 
   return (
     <>
       {session.data && <TrainingPlan session={session.data} />}
+      {locked && session.data && <LockedNotice kind="training" eventId={session.data.id} what="la lista y el cierre están" />}
       <AttendanceSheet
-      key={`${sheetKey}-${session.dataUpdatedAt}`}
-      categoryId={category.id}
-      date={date}
-      session={session.data}
-      roster={roster}
-      savedOk={savedKey === sheetKey}
-      onSaved={() => setSavedKey(sheetKey)}
-    />
+        key={`${sheetKey}-${session.dataUpdatedAt}`}
+        categoryId={category.id}
+        date={date}
+        session={session.data}
+        roster={roster}
+        readOnly={locked}
+        savedOk={savedKey === sheetKey}
+        onSaved={() => setSavedKey(sheetKey)}
+      />
       {session.data && (
         <FinishPrompt
           kind="training"
           eventId={session.data.id}
           finishedAt={session.data.finished_at}
           incomplete={session.data.attendance.length === 0 ? 'Aún no has guardado la lista.' : null}
+          showReopen={!locked}
         />
       )}
     </>
@@ -183,6 +201,7 @@ function AttendanceSheet({
   date,
   session,
   roster,
+  readOnly,
   savedOk,
   onSaved,
 }: {
@@ -190,6 +209,8 @@ function AttendanceSheet({
   date: string
   session: SessionWithAttendance | null
   roster: Tables<'players'>[]
+  /** Entrenamiento finalizado: se ve la lista, pero no se cambia hasta reabrir */
+  readOnly: boolean
   savedOk: boolean
   onSaved: () => void
 }) {
@@ -288,9 +309,11 @@ function AttendanceSheet({
           <strong>{present}</strong> presentes · {marked}/{roster.length} marcados
           {session && <span className="muted small"> · lista guardada</span>}
         </span>
-        <button type="button" className="btn btn-small" onClick={markAllUnsetPresent}>
-          Marcar resto como presentes
-        </button>
+        {!readOnly && (
+          <button type="button" className="btn btn-small" onClick={markAllUnsetPresent}>
+            Marcar resto como presentes
+          </button>
+        )}
       </div>
 
       <ul className="card list attendance-list">
@@ -312,6 +335,7 @@ function AttendanceSheet({
                     aria-checked={m.status === s}
                     title={labels.attendance[s]}
                     className={`toggle toggle-${s}${m.status === s ? ' on' : ''}`}
+                    disabled={readOnly}
                     onClick={() => setMark(p.id, { status: m.status === s ? null : s })}
                   >
                     {SHORT[s]}
@@ -334,8 +358,9 @@ function AttendanceSheet({
                   placeholder="Comentario (p. ej. motivo de la ausencia)"
                   maxLength={300}
                   value={m.comment}
+                  readOnly={readOnly}
                   onChange={(e) => setMark(p.id, { comment: e.target.value })}
-                  autoFocus
+                  autoFocus={!readOnly}
                 />
               )}
             </li>
@@ -352,6 +377,7 @@ function AttendanceSheet({
           <input
             list="closing-questions"
             value={fields.closing_question}
+            readOnly={readOnly}
             maxLength={300}
             onChange={(e) => setFields({ ...fields, closing_question: e.target.value })}
           />
@@ -366,11 +392,12 @@ function AttendanceSheet({
             rows={2}
             maxLength={2000}
             value={fields.closing_summary}
+            readOnly={readOnly}
             onChange={(e) => setFields({ ...fields, closing_summary: e.target.value })}
           />
         </Field>
         <Field label="Notas de la sesión">
-          <textarea rows={2} maxLength={2000} value={fields.notes} onChange={(e) => setFields({ ...fields, notes: e.target.value })} />
+          <textarea rows={2} maxLength={2000} value={fields.notes} readOnly={readOnly} onChange={(e) => setFields({ ...fields, notes: e.target.value })} />
         </Field>
       </section>
 
@@ -379,16 +406,18 @@ function AttendanceSheet({
       {removeSession.isError && <ErrorMessage message={toMessage(removeSession.error)} />}
       {savedOk && !dirty && <SuccessMessage>Lista guardada correctamente.</SuccessMessage>}
 
-      <div className="row sticky-actions">
-        <button className="btn btn-primary btn-large" onClick={onSave} disabled={save.isPending}>
-          {save.isPending ? 'Guardando…' : 'Guardar lista'}
-        </button>
-        {session && (isAdmin || session.created_by === profile?.id) && (
-          <ConfirmButton onConfirm={() => removeSession.mutate()} confirmText="Eliminar esta sesión" disabled={removeSession.isPending}>
-            Eliminar sesión
-          </ConfirmButton>
-        )}
-      </div>
+      {!readOnly && (
+        <div className="row sticky-actions">
+          <button className="btn btn-primary btn-large" onClick={onSave} disabled={save.isPending}>
+            {save.isPending ? 'Guardando…' : 'Guardar lista'}
+          </button>
+          {session && (isAdmin || session.created_by === profile?.id) && (
+            <ConfirmButton onConfirm={() => removeSession.mutate()} confirmText="Eliminar sesión (la revisión se conserva)" disabled={removeSession.isPending}>
+              Eliminar sesión
+            </ConfirmButton>
+          )}
+        </div>
+      )}
     </div>
   )
 }

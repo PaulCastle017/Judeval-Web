@@ -26,7 +26,7 @@ export function ConflictWarning({ t }: { t: TrainingFormApi }) {
 }
 
 /** ¿Cuándo? Categoría, fecha, hora y duración con selectores táctiles. */
-export function WhenSection({ t }: { t: TrainingFormApi }) {
+export function WhenSection({ t, categoryLocked = false }: { t: TrainingFormApi; categoryLocked?: boolean }) {
   const today = todayISO()
   const weekdays = t.category?.training_weekdays ?? []
   const dateOptions = [today, ...upcomingTrainingDays(today, weekdays, 3)]
@@ -35,7 +35,14 @@ export function WhenSection({ t }: { t: TrainingFormApi }) {
 
   return (
     <div className="stack">
-      <CategoryCards categories={t.categories} value={t.form.category_id} onChange={t.changeCategory} label="Categoría *" />
+      <CategoryCards
+        categories={t.categories}
+        value={t.form.category_id}
+        onChange={t.changeCategory}
+        label="Categoría *"
+        disabled={categoryLocked}
+        hint={categoryLocked ? 'Ya tiene lista pasada: no se puede cambiar de categoría.' : undefined}
+      />
       {t.errors.category_id && <span className="field-error">{t.errors.category_id}</span>}
       <DateChips value={t.form.session_date} onChange={(d) => t.setField('session_date', d)} suggestions={dateOptions} label="Fecha *" error={t.errors.session_date} />
       <TimeChips

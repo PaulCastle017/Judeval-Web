@@ -251,3 +251,91 @@
 .guide li { margin-bottom: 0.35rem; }
 .guide-dl dt { font-weight: var(--fw-bold); color: var(--brand-dark); margin-top: 0.6rem; }
 .guide-dl dd { margin: 0.15rem 0 0; }
+
+/* Calendario compartido ------------------------------------------------------------- */
+.cal-partido { --event-color: var(--event-match); --event-bg: var(--brand-tint); }
+.cal-reunion { --event-color: var(--event-meeting); --event-bg: var(--info-bg); }
+.cal-otro { --event-color: var(--event-other); --event-bg: var(--surface-sunken); }
+
+.cal-toolbar { display: flex; align-items: center; gap: var(--s2); }
+.cal-title { margin: 0; flex: 1; text-align: center; font-size: var(--fs-lg); }
+.cal-month { display: flex; flex-direction: column; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.cal-weekdays, .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; }
+.cal-weekday { background: var(--surface-sunken); text-align: center; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-muted); padding: var(--s1) 0; }
+.cal-day {
+  display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-width: 0; min-height: 6.25rem; padding: var(--s1);
+  font: inherit; color: inherit; text-align: left; cursor: pointer; border: 0; border-radius: 0; background: var(--surface);
+}
+.cal-out { background: var(--bg); color: var(--text-muted); }
+.cal-daynum { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 50%; font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.cal-today .cal-daynum { background: var(--brand); color: var(--on-brand); }
+.cal-selected { box-shadow: inset 0 0 0 2px var(--brand); }
+.cal-chips { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cal-chip {
+  display: block; padding: 1px 6px; border-left: 3px solid var(--event-color); border-radius: var(--r-sm); background: var(--event-bg);
+  font-size: var(--fs-xs); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-chip-time { font-weight: var(--fw-semibold); }
+.cal-more { padding-left: 6px; font-size: var(--fs-xs); color: var(--text-muted); }
+.cal-dots { display: none; }
+.cal-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--event-color); }
+@media (hover: hover) { .cal-day:hover { background: var(--surface-tint); } }
+/* Móvil: puntos de color por día; la agenda del día aparece debajo al tocarlo */
+@media (max-width: 639px) {
+  .cal-day { align-items: center; min-height: var(--tap-lg); padding: 4px 0; }
+  .cal-chips { display: none; }
+  .cal-dots { display: flex; gap: 3px; justify-content: center; min-height: 6px; }
+}
+
+.cal-item { border-left: 4px solid var(--event-color); padding-left: var(--s3) !important; }
+.cal-item-time { flex: 0 0 4.25rem; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.cal-item .list-main { flex: 1; }
+.cal-agenda-day { margin: 0; font-size: var(--fs-md); }
+.cal-agenda-today { border-color: var(--brand-tint-strong); box-shadow: 0 0 0 1px var(--brand-tint-strong); }
+.cal-earlier { align-self: center; }
+.cal-event-card { border-top: 4px solid var(--event-color); }
+
+/* Barra superior · desplegable «Más ▾» ------------------------------------------------ */
+.topnav-more { position: relative; }
+.topnav-more > summary {
+  list-style: none; cursor: pointer; white-space: nowrap; padding: 0.38rem 0.55rem; border-radius: var(--r-pill);
+  color: var(--on-brand); opacity: 0.85; font-weight: var(--fw-medium); font-size: var(--fs-sm);
+}
+.topnav-more > summary::-webkit-details-marker { display: none; }
+.topnav-more > summary.active, .topnav-more[open] > summary { background: rgba(255, 255, 255, 0.18); opacity: 1; }
+.topnav-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: var(--z-nav); min-width: 12rem;
+  display: flex; flex-direction: column; padding: var(--s1);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-3);
+}
+.topnav .topnav-menu a { color: var(--text); opacity: 1; border-radius: var(--r-sm); padding: 0.55rem 0.75rem; }
+.topnav .topnav-menu a.active { background: var(--brand-tint); color: var(--brand-dark); }
+.topnav a.nav-wide-only { display: none; }
+@media (min-width: 1280px) {
+  .topnav a.nav-wide-only { display: inline-flex; }
+  .topnav-menu a.nav-narrow-only { display: none; }
+}
+@media (hover: hover) { .topnav .topnav-menu a:hover { background: var(--bg); } }
+
+/* Reuniones de la Estructura (actas) --------------------------------------------------- */
+.meeting-card-title { margin: 0; font-size: var(--fs-lg); }
+.meeting-sections { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--s3); }
+.meeting-section-row { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); }
+.meeting-section-head { display: flex; align-items: center; gap: var(--s2); }
+.meeting-section-head > input { flex: 1; min-width: 0; }
+.meeting-section-head > .exercise-num { margin-top: 0; }
+.exercise-actions.meeting-section-actions { flex-direction: row; }
+/* Móvil: [nº · ↑↓✕] arriba y el título del punto a todo el ancho debajo */
+@media (max-width: 639px) {
+  .meeting-section-head { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'num . actions' 'title title title'; row-gap: var(--s2); }
+  .meeting-section-head > .exercise-num { grid-area: num; }
+  .meeting-section-head > .meeting-section-actions { grid-area: actions; }
+  .meeting-section-head > input { grid-area: title; }
+}
+.acta-index { padding: var(--s3) var(--s4); border: 1px solid var(--brand-tint-strong); border-radius: var(--r-md); background: var(--surface-tint); }
+.acta-index h2 { font-size: var(--fs-md); }
+.acta-index ol { margin: 0; }
+.acta-index li { margin-bottom: var(--s1); }
+.acta-section { scroll-margin-top: 5rem; }
+.acta-section h2 { font-size: var(--fs-lg); }
+.acta-summary { padding-top: var(--s3); border-top: 1px solid var(--border); }

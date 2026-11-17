@@ -33,7 +33,7 @@ const stamp = Date.now()
 const ADMIN_EMAIL = `smoke-admin-${stamp}@test.local`
 const COACH_EMAIL = `smoke-coach-${stamp}@test.local`
 const PASS = 'Prueba1234'
-const created = { users: [], playerId: null, reviewId: null, commitmentId: null, matchId: null, voleyMatchId: null, exerciseId: null, linkedReviewId: null }
+const created = { users: [], eventId: null, meetingId: null, playerId: null, reviewId: null, commitmentId: null, matchId: null, voleyMatchId: null, exerciseId: null, linkedReviewId: null }
 
 async function callAdminFn(client, body) {
   const { data, error } = await client.functions.invoke('admin-users', { body })
@@ -206,6 +206,20 @@ try {
   check(!!halfErr, 'rechaza un resultado a medias')
   const { error: resErr } = await coach.from('matches').update({ goals_for: 2, goals_against: 2 }).eq('id', match.id)
   check(!resErr, 'guarda el resultado', resErr)
+  const { error: mdErr } = await coach.rpc('save_match_day', {
+    p_match_id: match.id,
+    p_marks: { [player.id]: 'presente' },
+    p_goals_for: 3,
+    p_goals_against: 2,
+    p_sets: null,
+  })
+  const { data: mdRow } = await coach.from('matches').select('goals_for, match_players(status)').eq('id', match.id).single()
+  check(!mdErr && mdRow?.goals_for === 3 && mdRow.match_players[0]?.status === 'presente', 'día de partido en una sola transacción (save_match_day)', mdErr ?? mdRow)
+  const otherCat = cats.find((c) => c.id !== cats[0].id)
+  if (otherCat) {
+    const { error: catLockErr } = await coach.from('matches').update({ category_id: otherCat.id }).eq('id', match.id)
+    check(catLockErr?.code === '23514', 'con convocatoria no se cambia la categoría del partido (23514)', catLockErr)
+  }
   const { data: mStats, error: msErr } = await coach.rpc('player_match_stats', { p_from: '2000-01-01', p_to: '2000-01-31' })
   const myMatch = mStats?.find((r) => r.player_id === player.id)
   check(!msErr && myMatch?.called_up === 1 && myMatch?.presente === 1, 'estadísticas de partidos', msErr ?? mStats)
@@ -253,6 +267,11 @@ try {
   const { data: trAfter } = await coach.from('training_sessions').select('exercises').eq('id', training.id).single()
   check(trAfter?.exercises?.[0]?.name === 'Rondo smoke', 'editar la biblioteca no altera el entrenamiento ya preparado')
 
+  const { error: futureFinErr } = await coach.from('training_sessions').update({ finished_at: new Date().toISOString() }).eq('id', training.id)
+  check(futureFinErr?.code === '23514', 'no se puede finalizar un entrenamiento futuro (23514)', futureFinErr)
+  // Se pasa al pasado para poder finalizarlo (sin lista: puede cambiar de fecha y categoría)
+  const { error: moveErr } = await coach.from('training_sessions').update({ session_date: '2000-01-10' }).eq('id', training.id)
+  check(!moveErr, 'cambia la fecha de un entrenamiento sin lista', moveErr)
   const { error: finErr } = await coach.from('training_sessions').update({ finished_at: new Date().toISOString(), finished_by: coachId }).eq('id', training.id)
   check(!finErr, 'finaliza el entrenamiento', finErr)
   const { data: linkedId, error: lrErr } = await coach.rpc('save_review', {
@@ -281,6 +300,26 @@ try {
   const { data: orphan } = await coach.from('staff_reviews').select('id, training_session_id').eq('id', linkedId).single()
   check(orphan?.id === linkedId && orphan.training_session_id === null, 'al borrar el entrenamiento la revisión se conserva sin vínculo')
   created.linkedReviewId = linkedId
+
+  console.log('3b. Calendario y actas')
+  const { data: ev, error: evErr } = await coach
+    .from('calendar_events')
+    .insert({ title: 'Reunión smoke', kind: 'reunion', event_date: '2000-02-01', start_time: '19:00', end_time: '20:00' })
+    .select()
+    .single()
+  check(!evErr && ev?.sport === null, 'crea un evento de club en el calendario', evErr)
+  created.eventId = ev?.id
+  const { data: evEdit, error: evEditErr } = await admin.from('calendar_events').update({ location: 'Sede' }).eq('id', ev.id).select().single()
+  check(!evEditErr && evEdit?.location === 'Sede', 'otra persona del staff edita el evento', evEditErr)
+  const { data: mt, error: mtErr } = await coach
+    .from('meetings')
+    .insert({ title: 'Acta smoke', meeting_date: '2000-02-01', event_id: ev.id, summary: 'Resumen', sections: [{ title: 'Punto 1', body: 'Texto' }] })
+    .select()
+    .single()
+  check(!mtErr && mt?.sections?.length === 1, 'redacta un acta vinculada al evento', mtErr)
+  created.meetingId = mt?.id
+  const { data: mtSeen } = await admin.from('meetings').select('title, event_id').eq('id', mt.id).single()
+  check(mtSeen?.event_id === ev.id, 'el acta es visible para todo el staff y queda vinculada')
 
   console.log('4. Permisos negativos')
   const { error: roleErr } = await coach.from('profiles').update({ role: 'admin' }).eq('id', coachId)
@@ -316,6 +355,8 @@ try {
   if (created.matchId) await service.from('matches').delete().eq('id', created.matchId)
   if (created.voleyMatchId) await service.from('matches').delete().eq('id', created.voleyMatchId)
   if (created.exerciseId) await service.from('exercises').delete().eq('id', created.exerciseId)
+  if (created.meetingId) await service.from('meetings').delete().eq('id', created.meetingId)
+  if (created.eventId) await service.from('calendar_events').delete().eq('id', created.eventId)
   await service.from('poll_reminders').delete().eq('slot_date', '2000-01-02')
   await service.from('training_sessions').delete().eq('session_date', '2030-01-07')
   if (created.playerId) await service.from('players').delete().eq('id', created.playerId)

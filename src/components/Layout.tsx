@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useSport } from '../sport/SportProvider'
@@ -5,19 +6,55 @@ import { SPORT_EMOJI, SPORT_LABELS } from '../lib/format'
 import { useWords } from '../i18n/useWords'
 import type { Words } from '../i18n/gender'
 
-type NavItem = { to: string; label: string; short?: string; icon: string; end?: boolean }
+/**
+ * desktop: dónde va en la barra superior de escritorio
+ *  · 'bar'  siempre en la barra
+ *  · 'wide' en la barra con pantalla ancha (≥ 1280 px) y en «Más ▾» si no cabe
+ *  · 'more' siempre en «Más ▾»
+ */
+type NavItem = { to: string; label: string; short?: string; icon: string; end?: boolean; desktop: 'bar' | 'wide' | 'more' }
 
 // Orden del menú: Jugadores · Entrenamientos · Partidos · Asistencia…
 const navLinks = (w: Words): NavItem[] => [
-  { to: '/', label: 'Inicio', icon: '🏠', end: true },
-  { to: '/jugadores', label: w.Players, icon: '👥' },
-  { to: '/entrenamientos', label: 'Entrenamientos', short: 'Entrenos', icon: '📋' },
-  { to: '/partidos', label: 'Partidos', icon: '🏆' },
-  { to: '/asistencia', label: 'Asistencia', icon: '✅' },
-  { to: '/revisiones', label: 'Revisiones', icon: '📝' },
-  { to: '/compromisos', label: 'Compromisos', icon: '🎯' },
-  { to: '/guia', label: 'Guía', icon: '📖' },
+  { to: '/', label: 'Inicio', icon: '🏠', end: true, desktop: 'bar' },
+  { to: '/jugadores', label: w.Players, icon: '👥', desktop: 'bar' },
+  { to: '/entrenamientos', label: 'Entrenamientos', short: 'Entrenos', icon: '📋', desktop: 'bar' },
+  { to: '/partidos', label: 'Partidos', icon: '🏆', desktop: 'bar' },
+  { to: '/asistencia', label: 'Asistencia', icon: '✅', desktop: 'bar' },
+  { to: '/calendario', label: 'Calendario', icon: '📅', desktop: 'bar' },
+  { to: '/revisiones', label: 'Revisiones', icon: '📝', desktop: 'wide' },
+  { to: '/reuniones', label: 'Reuniones', icon: '🗂️', desktop: 'wide' },
+  { to: '/compromisos', label: 'Compromisos', icon: '🎯', desktop: 'more' },
+  { to: '/guia', label: 'Guía', icon: '📖', desktop: 'more' },
 ]
+
+/** «Más ▾» de la barra de escritorio: se cierra al elegir y al cambiar de página. */
+function TopnavMore({ items, isAdmin }: { items: NavItem[]; isAdmin: boolean }) {
+  const ref = useRef<HTMLDetailsElement>(null)
+  const location = useLocation()
+  useEffect(() => {
+    ref.current?.removeAttribute('open')
+  }, [location.pathname])
+  const paths = [...items.map((l) => l.to), ...(isAdmin ? ['/admin'] : [])]
+  const active = paths.some((p) => location.pathname.startsWith(p))
+  return (
+    <details ref={ref} className="topnav-more">
+      <summary className={active ? 'active' : ''}>Más ▾</summary>
+      <div className="topnav-menu">
+        {items.map((l) => (
+          <NavLink key={l.to} to={l.to} className={l.desktop === 'wide' ? 'nav-narrow-only' : ''}>
+            <span aria-hidden="true">{l.icon}</span> {l.label}
+          </NavLink>
+        ))}
+        {isAdmin && (
+          <NavLink to="/admin">
+            <span aria-hidden="true">⚙️</span> Admin
+          </NavLink>
+        )}
+      </div>
+    </details>
+  )
+}
 
 // En móvil: 5 accesos + «Más»
 const MOBILE_COUNT = 5
@@ -55,12 +92,14 @@ export function Layout() {
         </NavLink>
         <SportPill />
         <nav className="topnav" aria-label="Principal">
-          {links.map((l) => (
-            <NavLink key={l.to} to={l.to} end={l.end}>
-              {l.label}
-            </NavLink>
-          ))}
-          {isAdmin && <NavLink to="/admin">Admin</NavLink>}
+          {links
+            .filter((l) => l.desktop !== 'more')
+            .map((l) => (
+              <NavLink key={l.to} to={l.to} end={l.end} className={l.desktop === 'wide' ? 'nav-wide-only' : ''}>
+                {l.label}
+              </NavLink>
+            ))}
+          <TopnavMore items={links.filter((l) => l.desktop !== 'bar')} isAdmin={isAdmin} />
         </nav>
         <div className="topbar-user">
           <Link to="/perfil" className="topbar-profile" title="Mi perfil">

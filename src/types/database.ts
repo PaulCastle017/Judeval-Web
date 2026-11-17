@@ -55,6 +55,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"calendar_events": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"end_time": string | null,"event_date": string,"id": string,"kind": Database["public"]['Enums']["event_kind"],"location": string,"notes": string,"sport": Database["public"]['Enums']["sport_type"] | null,"start_time": string | null,"title": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"end_time"?: string | null,"event_date": string,"id"?: string,"kind"?: Database["public"]['Enums']["event_kind"],"location"?: string,"notes"?: string,"sport"?: Database["public"]['Enums']["sport_type"] | null,"start_time"?: string | null,"title": string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"end_time"?: string | null,"event_date"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["event_kind"],"location"?: string,"notes"?: string,"sport"?: Database["public"]['Enums']["sport_type"] | null,"start_time"?: string | null,"title"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "calendar_events_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "calendar_events_updated_by_fkey"
+      columns: ["updated_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"categories": {
                   Row: {
                     "created_at": string,"end_time": string | null,"id": string,"name": string,"schedule_text": string,"season": string,"sort_order": number,"sport": Database["public"]['Enums']["sport_type"],"start_time": string | null,"training_weekdays": (number)[],"updated_at": string
@@ -174,6 +200,38 @@ isOneToOne: false
     },{
       foreignKeyName: "matches_finished_by_fkey"
       columns: ["finished_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"meetings": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"event_id": string | null,"id": string,"meeting_date": string,"sections": NonNullable<Json>,"summary": string,"title": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"event_id"?: string | null,"id"?: string,"meeting_date": string,"sections"?: NonNullable<Json>,"summary"?: string,"title": string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"event_id"?: string | null,"id"?: string,"meeting_date"?: string,"sections"?: NonNullable<Json>,"summary"?: string,"title"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "meetings_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "meetings_event_id_fkey"
+      columns: ["event_id"]
+isOneToOne: true
+      referencedRelation: "calendar_events"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "meetings_updated_by_fkey"
+      columns: ["updated_by"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -431,6 +489,9 @@ isOneToOne: false
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"madrid_today":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "player_attendance_stats":
 { Args: { "p_category_id"?: string,"p_from"?: string,"p_to"?: string }; Returns: {
               "ausente": number,"justificado": number,"lesionado": number,"player_id": string,"presente": number,"rate": number,"total": number
@@ -445,6 +506,9 @@ isOneToOne: false
 { Args: { "p_category_id"?: string,"p_from"?: string,"p_to"?: string }; Returns: {
               "ausente": number,"called_up": number,"justificado": number,"lesionado": number,"player_id": string,"presente": number,"rate": number
             }[]
+                           },
+"save_match_day":
+{ Args: { "p_goals_against"?: number,"p_goals_for"?: number,"p_marks": Json,"p_match_id": string,"p_sets"?: Json }; Returns: undefined
                            },
 "save_review":
 { Args: { "p_body": string,"p_id": string,"p_match_id"?: string,"p_player_ids": (string)[],"p_review_date": string,"p_sport": Database["public"]['Enums']["sport_type"],"p_training_session_id"?: string }; Returns: string
@@ -463,7 +527,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "attendance_status": "presente"|"ausente"|"justificado"|"lesionado","commitment_status": "pendiente"|"cumplido"|"no_conseguido","match_venue": "local"|"visitante","note_topic": "vida_fuera"|"bienestar"|"experiencia"|"necesidades"|"objetivos"|"grupo"|"otro","note_type": "observacion"|"conversacion"|"reconocimiento"|"incidencia","player_position": "jugador"|"portero","player_status": "activo"|"lesionado"|"baja","sport_type": "futsal"|"voley","staff_role": "admin"|"coach"
+            "attendance_status": "presente"|"ausente"|"justificado"|"lesionado","commitment_status": "pendiente"|"cumplido"|"no_conseguido","event_kind": "reunion"|"otro","match_venue": "local"|"visitante","note_topic": "vida_fuera"|"bienestar"|"experiencia"|"necesidades"|"objetivos"|"grupo"|"otro","note_type": "observacion"|"conversacion"|"reconocimiento"|"incidencia","player_position": "jugador"|"portero","player_status": "activo"|"lesionado"|"baja","sport_type": "futsal"|"voley","staff_role": "admin"|"coach"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -583,7 +647,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "attendance_status": ["presente", "ausente", "justificado", "lesionado"],"commitment_status": ["pendiente", "cumplido", "no_conseguido"],"match_venue": ["local", "visitante"],"note_topic": ["vida_fuera", "bienestar", "experiencia", "necesidades", "objetivos", "grupo", "otro"],"note_type": ["observacion", "conversacion", "reconocimiento", "incidencia"],"player_position": ["jugador", "portero"],"player_status": ["activo", "lesionado", "baja"],"sport_type": ["futsal", "voley"],"staff_role": ["admin", "coach"]
+            "attendance_status": ["presente", "ausente", "justificado", "lesionado"],"commitment_status": ["pendiente", "cumplido", "no_conseguido"],"event_kind": ["reunion", "otro"],"match_venue": ["local", "visitante"],"note_topic": ["vida_fuera", "bienestar", "experiencia", "necesidades", "objetivos", "grupo", "otro"],"note_type": ["observacion", "conversacion", "reconocimiento", "incidencia"],"player_position": ["jugador", "portero"],"player_status": ["activo", "lesionado", "baja"],"sport_type": ["futsal", "voley"],"staff_role": ["admin", "coach"]
           }
         }
 } as const

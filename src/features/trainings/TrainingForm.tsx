@@ -10,6 +10,8 @@ import { ConfirmButton, ErrorMessage, Spinner } from '../../components/ui'
 import { Wizard } from '../../components/mobile/Wizard'
 import { useIsMobileOnMount } from '../../components/mobile/useIsMobile'
 import { EventReviewLink } from '../reviews/EventReviewLink'
+import { FinishPrompt } from '../reviews/FinishPrompt'
+import { todayISO } from '../../lib/format'
 import { clearTrainingDraft, useTrainingForm, type TrainingFormApi } from './useTrainingForm'
 import { ExercisesSection, NotesField, TrainingSummary, WhenSection } from './TrainingSections'
 import type { Tables } from '../../types/database'
@@ -28,7 +30,7 @@ export function TrainingEditPage() {
   const session = useQuery({
     enabled: !isNew,
     queryKey: ['sessions', 'training', id],
-    queryFn: async () => unwrapMaybe(await supabase.from('training_sessions').select('*').eq('id', id).maybeSingle()),
+    queryFn: async () => unwrapMaybe(await supabase.from('training_sessions').select('*, attendance(count)').eq('id', id).maybeSingle()),
   })
 
   if (categories.isPending || coachCategories.isPending || (!isNew && session.isPending)) return <Spinner />
@@ -37,7 +39,14 @@ export function TrainingEditPage() {
   if (!isNew && !session.data) return <ErrorMessage message="Entrenamiento no encontrado." />
 
   if (isNew && isMobile) return <TrainingWizard categories={categories.data} />
-  return <TrainingSinglePage key={session.data?.id ?? 'nuevo'} session={isNew ? null : session.data!} categories={categories.data} />
+  return (
+    <TrainingSinglePage
+      key={session.data?.id ?? 'nuevo'}
+      session={isNew ? null : session.data!}
+      hasList={(session.data?.attendance[0]?.count ?? 0) > 0}
+      categories={categories.data}
+    />
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -94,7 +103,15 @@ function SaveErrors({ t }: { t: TrainingFormApi }) {
 // Escritorio y edición: una sola pantalla con las mismas secciones
 // ---------------------------------------------------------------------------
 
-function TrainingSinglePage({ session, categories }: { session: Tables<'training_sessions'> | null; categories: Tables<'categories'>[] }) {
+function TrainingSinglePage({
+  session,
+  hasList,
+  categories,
+}: {
+  session: Tables<'training_sessions'> | null
+  hasList: boolean
+  categories: Tables<'categories'>[]
+}) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { profile, isAdmin } = useAuth()
@@ -123,7 +140,6 @@ function TrainingSinglePage({ session, categories }: { session: Tables<'training
         <h1>{session ? 'Editar entrenamiento' : 'Nuevo entrenamiento'}</h1>
         {session && (
           <span className="row">
-            {session.finished_at && <span className="badge badge-success">Finalizado ✓</span>}
             <Link to={`/asistencia?categoria=${session.category_id}&fecha=${session.session_date}`} className="btn">
               ✅ Pasar lista
             </Link>
@@ -132,10 +148,19 @@ function TrainingSinglePage({ session, categories }: { session: Tables<'training
       </header>
 
       {session && <EventReviewLink kind="training" eventId={session.id} />}
+      {/* Finalizar / reabrir también desde la ficha (antes solo desde «Pasar lista») */}
+      {session && session.session_date <= todayISO() && (
+        <FinishPrompt
+          kind="training"
+          eventId={session.id}
+          finishedAt={session.finished_at}
+          incomplete={hasList ? null : 'Aún no has pasado lista.'}
+        />
+      )}
 
       <section className="card stack">
         <h2>📅 ¿Cuándo?</h2>
-        <WhenSection t={t} />
+        <WhenSection t={t} categoryLocked={hasList} />
         <NotesField t={t} />
       </section>
 
@@ -155,7 +180,7 @@ function TrainingSinglePage({ session, categories }: { session: Tables<'training
           Cancelar
         </Link>
         {session && (isAdmin || session.created_by === profile?.id) && (
-          <ConfirmButton onConfirm={() => remove.mutate()} confirmText="Borrar (también su lista de asistencia)" disabled={remove.isPending}>
+          <ConfirmButton onConfirm={() => remove.mutate()} confirmText="Borrar con su lista (la revisión se conserva)" disabled={remove.isPending}>
             Borrar
           </ConfirmButton>
         )}

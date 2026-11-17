@@ -7,7 +7,7 @@ Basada en la guía «Acompañar, unir y hacer equipo»:
 - **Concordancia de género**: fútbol sala en masculino (jugadores, lesionado, convocados…) y voley en femenino (jugadoras, lesionada, convocadas…).
   Todas las palabras con género salen de `src/i18n/gender.ts`; un test impide escribirlas a mano en las pantallas. En voley no se muestra el campo «Posición».
 - **Inicio**: recordatorio de la **encuesta de asistencia por WhatsApp** (martes y domingo desde las 08:00, hora de Madrid; una fila por categoría,
-  se marca como enviada para todo el equipo técnico y se rearma cada turno), entrenamientos programados y próximos partidos (14 días),
+  se marca como enviada para todo el equipo técnico y se rearma cada turno), entrenamientos programados, **📅 próximos eventos** del calendario (14 días),
   seguimientos pendientes (con ➕) y jugadores «sin noticias individuales» en X días (X lo configura cada entrenador).
 - **Jugadores**: ficha por categoría con disponibilidad, consideraciones físicas, asistencia, revisiones en las que se le menciona y cronología de notas
   (observaciones, conversaciones individuales, reconocimientos e incidencias) con seguimientos pendientes.
@@ -24,9 +24,23 @@ Basada en la guía «Acompañar, unir y hacer equipo»:
 - **Revisiones**: texto libre con lo que se ha visto o se quiere resaltar, con jugadores etiquetados opcionalmente.
   Pueden ir **vinculadas a un entrenamiento o a un partido** (una por evento): muestran el chip del evento, toman su fecha y proponen
   a los presentes (o convocados) como sugerencias para etiquetar con un toque.
-- **Finalizar**: «✅ Finalizar entrenamiento» (en Pasar lista) y «🏁 Finalizar partido» (en Día de partido) marcan el evento como
-  «Finalizado ✓» y ofrecen «Añadir revisión ahora / Más tarde». Se puede reabrir. Los finalizados de los últimos 7 días sin revisión
-  aparecen en Inicio en «📝 Pendientes de revisión».
+- **Finalizar**: «✅ Finalizar entrenamiento» (en Pasar lista o en la ficha) y «🏁 Finalizar partido» (en Día de partido) marcan el evento como
+  «Finalizado ✓» y ofrecen «Añadir revisión ahora / Más tarde». **Bloqueo suave**: lista, convocatoria, alineación y resultado quedan en solo
+  lectura hasta pulsar «Reabrir para editar». No se puede pasar lista ni finalizar antes del día del evento. Los finalizados de los últimos
+  7 días sin revisión aparecen en Inicio en «📝 Pendientes de revisión».
+- **Estados**: partidos *Programado · Pendiente de cerrar · Jugado · Finalizado* y entrenamientos *Programado · Pendiente de lista ·
+  Lista pasada · Finalizado*, iguales en listados, fichas, Inicio y calendario. Lo ya jugado o finalizado pasa a «Jugados» / «Anteriores»
+  (con «Ver más» para lo antiguo).
+- **Integridad**: solo se convoca a jugadores de la categoría del partido; con convocatoria no se cambia la categoría del partido, y con
+  lista pasada no se cambia la del entrenamiento (lo garantiza la base de datos). «Día de partido» guarda asistencia y resultado en una
+  sola operación.
+- **📅 Calendario** (compartido por los dos deportes; el deporte activo no filtra): vista Mes (en el móvil, puntos por día y agenda del día
+  al tocarlo) y vista Agenda, con filtros por tipo y deporte. Los **partidos salen solos** (se leen de su tabla, no se copian); las
+  **reuniones** y **otros eventos** se crean desde el propio calendario, con deporte o «Club». Cualquiera del staff crea y edita;
+  borra quien lo creó o un admin.
+- **🗂️ Reuniones de la Estructura**: actas con título, fecha, **índice de puntos** (cada uno con su texto, ordenables) y resumen/acuerdos.
+  Todo el staff las ve y las edita (queda quién editó por última vez); borra el autor o un admin. Desde una reunión del calendario,
+  «📝 Redactar acta» la crea ya vinculada; un acta sin evento también aparece en el calendario en su fecha.
 - **Creación pensada para el móvil** (pantallas de menos de 640 px): el entrenamiento nuevo es un asistente de 3 pasos
   (¿Cuándo? → Ejercicios → Resumen, con borrador que sobrevive a una recarga), el partido nuevo uno de 2 pasos (Rival y cuándo → ¿Dónde?,
   con rivales y lugares recientes) y el ejercicio una hoja a pantalla completa con «Vídeo / Texto» y «Pegar enlace». Categoría, fecha y
@@ -265,6 +279,7 @@ Cuando una versión incluye una migración nueva en `supabase/migrations/`, **el
 | `20261101120000_matches_polls.sql` | Partidos (convocatoria, asistencia, resultado) y estado de la encuesta de WhatsApp | Solo añade tablas y funciones |
 | `20261102120000_sets_lineups_library.sql` | Resultado de voley por sets, alineaciones y biblioteca de ejercicios | Solo añade; los partidos de voley anteriores con marcador numérico se conservan y siguen siendo editables |
 | `20261103120000_finish_and_review_links.sql` | «Finalizar» entrenamientos y partidos, y revisiones vinculadas a un evento (una por evento) | Solo añade columnas, pero **cambia la función `save_review`**: entre la migración y el `git push` la web antigua no puede guardar revisiones. Haz los dos pasos seguidos |
+| `20261118120000_calendar_meetings_integrity.sql` | Calendario (`calendar_events`), actas (`meetings`), `save_match_day` y triggers de integridad (convocatoria de la categoría, categoría bloqueada con convocatoria o lista, no finalizar antes del día) | Solo añade objetos. Los triggers solo afectan a cambios nuevos: los datos existentes no se tocan |
 
 1. **Copia de seguridad**:
 
@@ -279,8 +294,8 @@ Cuando una versión incluye una migración nueva en `supabase/migrations/`, **el
    ```
 
    (Sin CLI: pega el contenido del archivo de la migración en **SQL Editor** y ejecútalo una vez.)
-3. **Comprobar** en Supabase → Table Editor que existen las columnas nuevas (por ejemplo, `finished_at` en `training_sessions` y `matches`,
-   y `training_session_id` / `match_id` en `staff_reviews`).
+3. **Comprobar** en Supabase → Table Editor que existen las tablas y columnas nuevas (por ejemplo, las tablas `calendar_events` y `meetings`,
+   o `finished_at` en `training_sessions` y `matches`).
 4. **Publicar la web**: `git add .`, `git commit -m "…"` y `git push`. Vercel la despliega solo en 1–2 minutos.
 
 La Edge Function `admin-users` no cambia con esta migración y no hace falta volver a desplegarla.

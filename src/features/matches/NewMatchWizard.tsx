@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { toMessage } from '../../lib/errors'
@@ -13,6 +13,7 @@ import { CategoryCards, DateChips, Segmented, TimeChips } from '../../components
 import { ErrorMessage, Field } from '../../components/ui'
 import { Wizard } from '../../components/mobile/Wizard'
 import type { Enums, Tables } from '../../types/database'
+import { useMatchConflict } from './useMatchConflict'
 
 type Venue = Enums<'match_venue'>
 
@@ -32,6 +33,9 @@ function RecentChips({ items, onPick, label }: { items: string[]; onPick: (v: st
 /** Alta de partido en el móvil: 1) rival y cuándo · 2) dónde. Después, convocatoria en la ficha. */
 export function NewMatchWizard({ categories }: { categories: Tables<'categories'>[] }) {
   const navigate = useNavigate()
+  // Desde el calendario llega ?fecha= (el día tocado); si no, el próximo fin de semana
+  const [params] = useSearchParams()
+  const requestedDate = params.get('fecha')
   const queryClient = useQueryClient()
   const { profile } = useAuth()
   const coachCategories = useCoachCategories()
@@ -45,7 +49,7 @@ export function NewMatchWizard({ categories }: { categories: Tables<'categories'
         readLast('categoria-partido'),
       ),
       opponent: '',
-      match_date: upcomingWeekend(today)[0],
+      match_date: requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : upcomingWeekend(today)[0],
       start_time: '',
       venue: 'local' as Venue,
       location: readLast('lugar-local') ?? '',
@@ -54,6 +58,7 @@ export function NewMatchWizard({ categories }: { categories: Tables<'categories'
     }
   })
   const { errors, setErrors, clearError } = useFieldErrors()
+  const duplicate = useMatchConflict(form.category_id, form.match_date, null)
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     clearError(String(key))
@@ -113,6 +118,11 @@ export function NewMatchWizard({ categories }: { categories: Tables<'categories'
                 </Field>
                 <RecentChips items={readRecent('rival').filter((r) => r !== form.opponent)} onPick={(v) => set('opponent', v)} label="Rivales recientes" />
                 <DateChips value={form.match_date} onChange={(d) => set('match_date', d)} suggestions={[today, ...upcomingWeekend(today)]} label="Fecha *" error={errors.match_date} />
+                {duplicate && (
+                  <p className="small text-warn" role="status">
+                    ⚠ Ya hay un partido de esa categoría ese día (vs {duplicate.opponent}). Si es un torneo, puedes seguir.
+                  </p>
+                )}
                 <TimeChips value={form.start_time} onChange={(t) => set('start_time', t)} suggestions={recentTimes.slice(0, 3)} label="Hora" />
               </>
             ),
